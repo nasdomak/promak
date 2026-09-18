@@ -1,0 +1,13 @@
+# Promak runtime dependencies
+# Install with:  pip install -r requirements.txt
+
+PySide6>=6.6            # graphical interface
+
+# --- tool 1: video downloader --------------------------------------------
+yt-dlp>=2024.1.1        # download engine, knows well over a thousand sites
+imageio-ffmpeg>=0.4.9   # ships an FFmpeg binary, so nothing has to be installed by hand
+faster-whisper>=1.0.0   # local, free speech-to-text
+
+# --- tools 2 and 3: the picture tools ------------------------------------
+Pillow>=10.0            # opening and saving pictures
+vtracer>=0.6            # turns a picture into real vector shapes (SVG)

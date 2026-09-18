@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promak"
+version = "0.2.0"
+description = "Free and open-source productivity toolbox: video downloader with transcription, picture-to-vector (SVG) and picture shrinker."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "nasdomak" }]
+keywords = ["video", "downloader", "mp3", "transcription", "whisper", "svg", "vector",
+            "image", "compression", "productivity", "gui"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "PySide6>=6.6",
+    "yt-dlp>=2024.1.1",
+    "imageio-ffmpeg>=0.4.9",
+    "faster-whisper>=1.0.0",
+    "Pillow>=10.0",
+    "vtracer>=0.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.urls]
+Homepage = "https://github.com/nasdomak/promak"
+Issues = "https://github.com/nasdomak/promak/issues"
+
+[project.gui-scripts]
+promak = "promak.app:main"
+
+[project.scripts]
+promak-cli = "promak.app:main"
+
+[tool.setuptools.packages.find]
+include = ["promak*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

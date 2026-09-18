@@ -1,0 +1,21 @@
+# Let git decide the line endings, and keep them LF inside the repository.
+* text=auto eol=lf
+
+# On Windows these must be CRLF or the console mangles them.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files: never touched, never shown as a diff.
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.tif  binary
+*.tiff binary
+*.mp3  binary
+*.mp4  binary
+
+# Keep GitHub's language statistics honest.
+*.bat linguist-language=Batchfile

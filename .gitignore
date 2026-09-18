@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+
+# Promak local data
+settings.json
+logs/
+models/
+*.log
+
+# Media produced while testing
+downloads/
+output/
+*.mp4
+*.mp3
+*.webm
+*.m4a
+*.srt.bak
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Working notes kept out of the public repository
+project_context.md
+PROMPT_SESSIONE_*.md
+
+# Files waiting to be deleted by hand (see project_context.md)
+_to_delete/
+
+# Pictures Claude dropped in the folder during a session
+Claude outputs/
+
+# Il mio file personale per caricare su GitHub (non serve a chi scarica Promak)
+carica_su_github.bat
