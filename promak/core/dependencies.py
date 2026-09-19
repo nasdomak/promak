@@ -281,7 +281,7 @@ def check_dependencies() -> List[Dependency]:
 def image_dependencies() -> List[Dependency]:
     """Components used by the picture tools.
 
-    Kept apart from :func:`check_dependencies` so the YouTube screen does not
+    Kept apart from :func:`check_dependencies` so the video screen does not
     complain about a missing vectoriser, and the picture screens do not
     complain about a missing FFmpeg.
     """

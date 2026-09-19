@@ -1,7 +1,7 @@
 """Persistent application settings.
 
 Settings are a flat dictionary of dotted keys stored as JSON, so a tool
-can claim its own namespace (``youtube.quality``) without touching the
+can claim its own namespace (``video.quality``) without touching the
 rest of the file.
 """
 
@@ -21,7 +21,7 @@ DEFAULTS: Dict[str, Any] = {
     "app.theme": "light",
     "app.last_tool": "video",
     "app.window_geometry": "",
-    # ---- tool 1: video downloader (called "youtube" up to 0.1.2) ----
+    # ---- tool 1: video downloader (a different namespace up to 0.1.2) ----
     "video.default_destination": "",
     "video.keep_video": True,
     "video.make_mp3": True,
@@ -56,45 +56,45 @@ DEFAULTS: Dict[str, Any] = {
     "shrink.overwrite": False,
 }
 
-# Settings written by Promak 0.1.2, when the video tool was called "youtube".
-# They are copied over on the first start so nobody loses their choices.
-RENAMED_KEYS: Dict[str, str] = {
-    "youtube.default_destination": "video.default_destination",
-    "youtube.keep_video": "video.keep_video",
-    "youtube.make_mp3": "video.make_mp3",
-    "youtube.transcribe": "video.transcribe",
-    "youtube.video_quality": "video.video_quality",
-    "youtube.mp3_bitrate": "video.mp3_bitrate",
-    "youtube.whisper_model": "video.whisper_model",
-    "youtube.language": "video.language",
-    "youtube.write_txt": "video.write_txt",
-    "youtube.write_srt": "video.write_srt",
-    "youtube.overwrite": "video.overwrite",
-    "youtube.cookies_from_browser": "video.cookies_from_browser",
-    "youtube.compatible_video": "video.compatible_video",
-}
+# Promak 0.1.2 kept the video tool's settings under a different namespace,
+# named after the one site it supported back then.  The name is dead, but the
+# settings files on people's disks are not: this single constant is the only
+# place it survives, so a 0.1.2 user keeps every choice they had made.
+LEGACY_VIDEO_NAMESPACE = "youtube."
+VIDEO_NAMESPACE = "video."
+LEGACY_TOOL_ID = LEGACY_VIDEO_NAMESPACE.rstrip(".")
+
+#: Old keys with no direct equivalent, handled one by one in :func:`_migrate`.
+LEGACY_SPECIAL_KEYS = (f"{LEGACY_VIDEO_NAMESPACE}subfolder_per_video",)
 
 
 def _migrate(loaded: Dict[str, Any]) -> Dict[str, Any]:
     """Bring a settings file written by an older Promak up to date.
 
-    Only keys the old version actually wrote are touched, and a value the
-    new name already holds is never overwritten.
+    Every key of the old video namespace is carried over to the new one, a
+    value the new name already holds is never overwritten, and the old keys
+    are then dropped so the file does not keep growing.
     """
     data = dict(loaded)
-    for old_key, new_key in RENAMED_KEYS.items():
-        if old_key in data and new_key not in data:
-            data[new_key] = data[old_key]
+
+    for old_key in [k for k in data if k.startswith(LEGACY_VIDEO_NAMESPACE)]:
+        if old_key in LEGACY_SPECIAL_KEYS:
+            continue
+        new_key = VIDEO_NAMESPACE + old_key[len(LEGACY_VIDEO_NAMESPACE):]
+        if new_key not in DEFAULTS:
+            continue                      # a setting that no longer exists
+        data.setdefault(new_key, data[old_key])
+
     # "one subfolder per video" became a three-way choice.
-    if "video.folder_layout" not in data and "youtube.subfolder_per_video" in data:
-        data["video.folder_layout"] = (
-            "per_video" if data["youtube.subfolder_per_video"] else "sorted"
-        )
-    if data.get("app.last_tool") == "youtube":
+    old_subfolder = f"{LEGACY_VIDEO_NAMESPACE}subfolder_per_video"
+    if "video.folder_layout" not in data and old_subfolder in data:
+        data["video.folder_layout"] = "per_video" if data[old_subfolder] else "sorted"
+
+    if data.get("app.last_tool") == LEGACY_TOOL_ID:
         data["app.last_tool"] = "video"
-    for old_key in RENAMED_KEYS:
+
+    for old_key in [k for k in data if k.startswith(LEGACY_VIDEO_NAMESPACE)]:
         data.pop(old_key, None)
-    data.pop("youtube.subfolder_per_video", None)
     return data
 
 

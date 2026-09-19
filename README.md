@@ -31,11 +31,9 @@ Light interface by default, dark on one click, and the choice is remembered.
 | 2. Extract  | `Video title [id].mp3` at the bitrate you choose |
 | 3. Transcribe | `Video title [id].txt` (readable text) and `Video title [id].srt` (subtitles with timecodes) |
 
-* **Almost any site** — the engine ([yt-dlp](https://github.com/yt-dlp/yt-dlp))
-  knows well over a thousand of them: YouTube, Vimeo, Facebook, Instagram, X,
-  TikTok, Dailymotion, Twitch, broadcasters, news and teaching sites, and plain
-  links to a video file. Promak keeps no list of allowed sites: paste a link and
-  it is tried.
+* **Almost any site** — video sites, broadcasters, news and teaching sites,
+  and plain links to a video file. Promak keeps no list of allowed sites and
+  names none: paste a link and it is tried.
 * **Tidy folders** — by default each video gets its own folder, and inside it one
   folder per kind of file, so ten links give ten tidy folders instead of thirty
   files in a heap:
@@ -61,7 +59,8 @@ Light interface by default, dark on one click, and the choice is remembered.
 * **Audio-only shortcut** — untick "Keep the video" and Promak downloads just the
   audio stream, which is several times faster.
 * **Signed-in downloads** — for age-restricted videos, or when a site asks to
-  "confirm you're not a bot", pick your browser under *Use cookies from*.
+  "confirm you're not a bot", pick your browser under *Use cookies from* and
+  Promak borrows its cookies.
 * **Files that actually play** — *Play on any device* asks for H.264 instead of
   VP9/AV1, so the MP4 opens in any player. Every download is then inspected: a
   truncated or stream-only file is fetched again automatically.
@@ -168,7 +167,7 @@ the CPU.
 | What you see | What to do |
 |--------------|------------|
 | A component says **MISSING** at the top of the window | Press *Check components*; if it stays missing, run `install_windows.bat` again |
-| Every video fails, whatever the link | Press **Update yt-dlp** — video sites change often and this is the usual cure |
+| Every video fails, whatever the link | Press **Update the download engine** — video sites change often and this is the usual cure |
 | *"The site asks for a sign-in"* | Set **Use cookies from** to the browser where you are logged in to that site |
 | *"The site could not be reached"* | Check the connection, a VPN or a company firewall |
 | *"The speech model could not be downloaded"* | Same: the first transcription needs internet access to fetch the model once |

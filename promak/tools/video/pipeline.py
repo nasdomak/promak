@@ -1,6 +1,6 @@
 """Sequential pipeline: download -> MP3 -> transcript.
 
-Works with any site the download engine knows, not only YouTube.
+Works with any site the download engine knows; Promak names none of them.
 
 The engine knows nothing about Qt.  It reports through two callbacks, so
 it can be driven by the GUI, by a test, or by a future command-line

@@ -94,7 +94,7 @@ def build_format(
 ) -> str:
     """Compose the yt-dlp format string.
 
-    ``compatible`` asks for H.264 video with AAC audio.  YouTube and others offer their
+    ``compatible`` asks for H.264 video with AAC audio.  The big sites offer their
     best streams in VP9 or AV1, and those play badly in the players that
     ship with Windows: a few seconds of picture, then a frozen image while
     the sound carries on.  H.264 is one step lower in efficiency but opens
@@ -359,7 +359,7 @@ def _humanize(exc: Exception) -> str:
     if "confirm you are on the latest version" in lowered or "extractor" in lowered:
         return (
             "The download engine does not understand what the site answered. "
-            "Press \"Update yt-dlp\" and try again."
+            "Press \"Update the download engine\" and try again."
         )
     if "requested format is not available" in lowered:
         return "The requested quality is not available for this video."

@@ -17,24 +17,11 @@ _counter = itertools.count(1)
 
 URL_PATTERN = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
-# Promak downloads from any site the engine (yt-dlp) knows - well over a
-# thousand of them: YouTube, Vimeo, Facebook, Instagram, X, TikTok,
-# Dailymotion, Twitch, RAI, ARD, news sites, university portals, and plain
-# links to a video file.  These hosts are listed only because a bare video
-# id typed on its own is assumed to be a YouTube one, and because the
-# sign-in advice differs there.
-YOUTUBE_HOSTS = (
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "music.youtube.com",
-    "youtu.be",
-)
-
-#: Shown in the interface, so nobody assumes the tool is YouTube-only.
+#: Shown in the interface: Promak keeps no list of allowed sites, so the
+#: honest thing to tell the user is that any address is worth trying.
 KNOWN_SITES_HINT = (
-    "YouTube, Vimeo, Facebook, Instagram, X, TikTok, Dailymotion, Twitch, "
-    "RAI, Arte, and most news and teaching sites"
+    "video sites, broadcasters, news and teaching sites, and direct links to "
+    "a video file"
 )
 
 VIDEO_QUALITIES = ["Best available", "1080p", "720p", "480p", "360p"]
@@ -184,18 +171,12 @@ def extract_urls(text: str) -> list[str]:
     return result
 
 
-def looks_like_youtube(url: str) -> bool:
-    """True for a YouTube link. Every other site is downloaded just the same."""
-    lowered = url.lower()
-    return any(host in lowered for host in YOUTUBE_HOSTS)
-
-
 def looks_like_video_url(url: str) -> bool:
     """True for anything that could hold a video: any http(s) address.
 
-    Promak does not keep a list of allowed sites - the download engine
-    already knows more than a thousand of them, and a site it does not
-    know may still serve a plain video file.  So the only thing checked
-    here is that the text really is a web address.
+    Promak deliberately keeps no list of allowed sites: the download
+    engine already knows a great many, and one it does not know may still
+    serve a plain video file.  So the only thing checked here is that the
+    text really is a web address.
     """
     return bool(URL_PATTERN.fullmatch((url or "").strip()))

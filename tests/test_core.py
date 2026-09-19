@@ -14,7 +14,6 @@ from promak.tools.video.models import (
     Stage,
     extract_urls,
     looks_like_video_url,
-    looks_like_youtube,
 )
 from promak.tools.video.pipeline import StageWeights
 from promak.tools.video.transcriber import Segment, _srt_time, write_srt, write_txt
@@ -68,28 +67,25 @@ def test_config_survives_a_corrupted_file(tmp_path: Path):
 # ------------------------------------------------------------------- urls
 def test_extract_urls_keeps_order_and_drops_duplicates():
     text = """
-    https://youtu.be/aaa
-    see https://www.youtube.com/watch?v=bbb, thanks
-    https://youtu.be/aaa
+    https://a-video-site.example/aaa
+    see https://another-site.example/watch?v=bbb, thanks
+    https://a-video-site.example/aaa
     not a link
     """
-    assert extract_urls(text) == ["https://youtu.be/aaa", "https://www.youtube.com/watch?v=bbb"]
+    assert extract_urls(text) == [
+        "https://a-video-site.example/aaa",
+        "https://another-site.example/watch?v=bbb",
+    ]
 
 
 def test_extract_urls_on_empty_input():
     assert extract_urls("") == []
 
 
-def test_looks_like_youtube():
-    assert looks_like_youtube("https://youtu.be/x")
-    assert looks_like_youtube("https://music.youtube.com/watch?v=x")
-    assert not looks_like_youtube("https://vimeo.com/123")
-
-
 def test_any_site_counts_as_a_video_link():
-    """The tool is not YouTube-only: any web address is accepted."""
-    assert looks_like_video_url("https://vimeo.com/123")
-    assert looks_like_video_url("https://www.facebook.com/watch/?v=9")
+    """Promak keeps no list of allowed sites: any web address is accepted."""
+    assert looks_like_video_url("https://a-video-site.example/123")
+    assert looks_like_video_url("https://a-social-site.example/watch/?v=9")
     assert looks_like_video_url("http://a-news-site.example/story/video.mp4")
     assert not looks_like_video_url("just some words")
     assert not looks_like_video_url("")
@@ -170,8 +166,11 @@ def test_tool_registry_finds_every_tool():
     assert {"video", "vectorize", "shrink"} <= found, found
 
 
-def test_the_video_tool_is_no_longer_called_youtube():
+def test_the_video_tool_uses_its_new_id():
+    """The tool used to be named after a single site; that id must be gone."""
+    from promak.core.config import LEGACY_TOOL_ID
     from promak.core.tool_registry import ToolRegistry
 
     found = {tool.info.id for tool in ToolRegistry().discover()}
-    assert "youtube" not in found
+    assert LEGACY_TOOL_ID not in found
+    assert "video" in found

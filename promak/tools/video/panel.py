@@ -1,6 +1,6 @@
 """The video downloader screen.
 
-Works with any site the download engine knows, not only YouTube.
+Works with any site the download engine knows; Promak names none of them.
 """
 
 from __future__ import annotations
@@ -88,20 +88,16 @@ class _PlaylistExpander(QThread):
         for entry in entries:
             url = entry.get("webpage_url") or entry.get("original_url") or entry.get("url") or ""
             if url and not url.startswith("http"):
-                # Only YouTube hands back a bare video id; on any other site an
-                # entry without a full address is unusable, so it is dropped.
-                url = (
-                    f"https://www.youtube.com/watch?v={url}"
-                    if "youtu" in self._url.lower()
-                    else ""
-                )
+                # An entry without a full address cannot be downloaded on its
+                # own, so it is dropped rather than guessed at.
+                url = ""
             if url:
                 items.append({"url": url, "title": entry.get("title") or ""})
         self.resolved.emit(self._url, items)
 
 
 class _Updater(QThread):
-    """Runs ``pip install -U yt-dlp`` without freezing the window."""
+    """Updates the download engine without freezing the window."""
 
     done = Signal(bool, str)
 
@@ -163,9 +159,11 @@ class VideoPanel(QWidget):
         self.component_label.setObjectName("HintLabel")
         self.component_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         check_button = QPushButton("Check components")
-        check_button.setToolTip("Look again for yt-dlp, FFmpeg and the transcription engine.")
+        check_button.setToolTip(
+            "Look again for the download engine, FFmpeg and the transcription engine."
+        )
         check_button.clicked.connect(self._check_components)
-        self.update_button = QPushButton("Update yt-dlp")
+        self.update_button = QPushButton("Update the download engine")
         self.update_button.setToolTip(
             "Video sites change often. When downloads start failing for every video,\n"
             "updating the download engine is almost always the fix."
@@ -211,8 +209,8 @@ class VideoPanel(QWidget):
         self.url_input = QPlainTextEdit()
         self.url_input.setPlaceholderText(
             "Paste one or more links to videos, one per line - any site.\n"
-            "https://www.youtube.com/watch?v=...     https://vimeo.com/...\n"
-            "https://www.facebook.com/...            https://a-news-site.com/article-with-video"
+            "https://a-video-site.example/watch?v=...\n"
+            "https://a-news-site.example/article-with-video"
         )
         self.url_input.setToolTip(f"Works with {KNOWN_SITES_HINT}.")
         self.url_input.setFixedHeight(92)
@@ -341,8 +339,8 @@ class VideoPanel(QWidget):
 
         self.compatible_check = QCheckBox("Play on any device (H.264)")
         self.compatible_check.setToolTip(
-            "The best streams on YouTube and other big sites use VP9 or AV1. They save\n"
-            "space, but the players\n"
+            "The best streams on the big sites use VP9 or AV1. They save space,\n"
+            "but the players\n"
             "built into Windows often show a few seconds and then freeze the picture\n"
             "while the sound carries on. With this ticked Promak asks for H.264, which\n"
             "opens everywhere. Untick it only if you want the smallest file and your\n"
@@ -590,7 +588,7 @@ class VideoPanel(QWidget):
         """Update the download engine, the usual cure when a site changes."""
         self.update_button.setEnabled(False)
         self.update_button.setText("Updating...")
-        self._log("info", "Updating yt-dlp, please wait...")
+        self._log("info", "Updating the download engine, please wait...")
         self._updater = _Updater(self)
         self._updater.done.connect(self._on_update_finished)
         self._updater.start()

@@ -76,7 +76,7 @@ def test_fit_to_path_limit_never_empties_the_name():
 # ---------------------------------------------------------------- pipeline
 @needs_ffmpeg
 def test_full_run_produces_video_and_mp3(tmp_path, fake_download):
-    job = Job(url="https://youtu.be/abc123XYZ", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/abc123XYZ", destination=tmp_path)
     options = JobOptions(keep_video=True, make_mp3=True, transcribe=False, folder_layout=FLAT)
     logs: list = []
 
@@ -96,7 +96,7 @@ def test_full_run_produces_video_and_mp3(tmp_path, fake_download):
 
 @needs_ffmpeg
 def test_audio_only_run_removes_the_video_file(tmp_path, fake_download):
-    job = Job(url="https://youtu.be/abc123XYZ", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/abc123XYZ", destination=tmp_path)
     options = JobOptions(keep_video=False, make_mp3=True, transcribe=False, folder_layout=FLAT)
 
     PipelineEngine(options).run([job])
@@ -110,11 +110,11 @@ def test_audio_only_run_removes_the_video_file(tmp_path, fake_download):
 @needs_ffmpeg
 def test_second_run_reuses_the_existing_files(tmp_path, fake_download):
     options = JobOptions(keep_video=True, make_mp3=True, transcribe=False, folder_layout=FLAT)
-    first = Job(url="https://youtu.be/abc123XYZ", destination=tmp_path)
+    first = Job(url="https://a-video-site.example/abc123XYZ", destination=tmp_path)
     PipelineEngine(options).run([first])
     stamp = first.outputs["mp3"].stat().st_mtime_ns
 
-    second = Job(url="https://youtu.be/abc123XYZ", destination=tmp_path)
+    second = Job(url="https://a-video-site.example/abc123XYZ", destination=tmp_path)
     logs: list = []
     PipelineEngine(options, on_log=lambda lvl, msg: logs.append(msg)).run([second])
 
@@ -137,8 +137,8 @@ def test_a_failing_job_does_not_stop_the_others(tmp_path, monkeypatch):
     monkeypatch.setattr(downloader, "download", download)
 
     jobs = [
-        Job(url="https://youtu.be/bad", destination=tmp_path),
-        Job(url="https://youtu.be/good", destination=tmp_path),
+        Job(url="https://a-video-site.example/bad", destination=tmp_path),
+        Job(url="https://a-video-site.example/good", destination=tmp_path),
     ]
     options = JobOptions(keep_video=True, make_mp3=False, transcribe=False)
     summary = PipelineEngine(options).run(jobs)
@@ -154,7 +154,7 @@ def test_cancelling_before_the_run_marks_every_job(tmp_path):
 
     event = threading.Event()
     event.set()
-    jobs = [Job(url="https://youtu.be/x", destination=tmp_path)]
+    jobs = [Job(url="https://a-video-site.example/x", destination=tmp_path)]
     summary = PipelineEngine(JobOptions(), cancel_event=event).run(jobs)
 
     assert summary["cancelled"] == 1
@@ -163,7 +163,7 @@ def test_cancelling_before_the_run_marks_every_job(tmp_path):
 
 def test_unwritable_destination_fails_cleanly(tmp_path, fake_download, monkeypatch):
     monkeypatch.setattr("os.access", lambda *args, **kwargs: False)
-    job = Job(url="https://youtu.be/abc", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/abc", destination=tmp_path)
     summary = PipelineEngine(JobOptions(transcribe=False)).run([job])
 
     assert summary["failed"] == 1
@@ -238,7 +238,7 @@ def test_stream_fragments_are_not_mistaken_for_the_video(tmp_path, fake_download
     base = "A test video part 1 2 [abc123XYZ]"
     make_media(tmp_path / f"{base}.f137.mp4")
 
-    job = Job(url="https://youtu.be/abc123XYZ", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/abc123XYZ", destination=tmp_path)
     logs: list = []
     PipelineEngine(
         JobOptions(keep_video=True, make_mp3=False, transcribe=False, folder_layout=FLAT),
@@ -271,7 +271,7 @@ def test_a_truncated_download_is_fetched_again(tmp_path, monkeypatch):
     monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
     monkeypatch.setattr(downloader, "download", download)
 
-    job = Job(url="https://youtu.be/zzz", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/zzz", destination=tmp_path)
     summary = PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run([job])
 
     assert attempts["count"] == 2
@@ -298,7 +298,7 @@ def test_error_messages_are_readable(raw, expected_fragment):
 def test_each_video_gets_its_own_folder_with_one_folder_per_kind(tmp_path, fake_download):
     """The arrangement Marco asked for: a folder per video, mp4 / mp3 / transcript inside."""
     jobs = [
-        Job(url="https://vimeo.com/one", destination=tmp_path),
+        Job(url="https://a-video-site.example/one", destination=tmp_path),
         Job(url="https://a-news-site.example/two", destination=tmp_path),
     ]
     options = JobOptions(keep_video=True, make_mp3=True, transcribe=False, folder_layout=SORTED)
@@ -318,7 +318,7 @@ def test_each_video_gets_its_own_folder_with_one_folder_per_kind(tmp_path, fake_
 
 @needs_ffmpeg
 def test_an_audio_only_run_leaves_no_empty_video_folder(tmp_path, fake_download):
-    job = Job(url="https://vimeo.com/one", destination=tmp_path)
+    job = Job(url="https://a-video-site.example/one", destination=tmp_path)
     options = JobOptions(keep_video=False, make_mp3=True, transcribe=False, folder_layout=SORTED)
 
     PipelineEngine(options).run([job])
@@ -332,10 +332,10 @@ def test_an_audio_only_run_leaves_no_empty_video_folder(tmp_path, fake_download)
 @needs_ffmpeg
 def test_a_second_run_finds_the_video_inside_its_subfolder(tmp_path, fake_download):
     options = JobOptions(keep_video=True, make_mp3=True, transcribe=False, folder_layout=SORTED)
-    PipelineEngine(options).run([Job(url="https://vimeo.com/one", destination=tmp_path)])
+    PipelineEngine(options).run([Job(url="https://a-video-site.example/one", destination=tmp_path)])
 
     logs: list = []
-    second = Job(url="https://vimeo.com/one", destination=tmp_path)
+    second = Job(url="https://a-video-site.example/one", destination=tmp_path)
     PipelineEngine(options, on_log=lambda lvl, msg: logs.append(msg)).run([second])
 
     assert second.stage is Stage.DONE

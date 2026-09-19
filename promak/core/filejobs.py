@@ -1,6 +1,6 @@
 """The queue shared by every file-to-file tool.
 
-The YouTube converter has its own richer job model because it goes through
+The video downloader has its own richer job model because it goes through
 four different steps.  Tools that turn one file into another file all share
 this one, so the queue, the progress and the error handling are written once.
 """
