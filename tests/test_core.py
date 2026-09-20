@@ -152,7 +152,12 @@ def test_write_srt(tmp_path: Path):
 
 def test_write_txt_includes_header(tmp_path: Path):
     segments = [Segment(0.0, 1.0, "One."), Segment(5.0, 6.0, "Two.")]
-    target = write_txt(segments, tmp_path / "out.txt", title="My video", source_url="https://x")
+    target = write_txt(
+        segments,
+        tmp_path / "out.txt",
+        title="My video",
+        source_url="https://a-video-site.example/x",
+    )
     content = target.read_text(encoding="utf-8")
     assert content.startswith("My video")
     assert "One." in content and "Two." in content
