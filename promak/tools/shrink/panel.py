@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QSlider,
     QSpinBox,
@@ -102,7 +103,7 @@ class ShrinkPanel(FileQueuePanel):
         )
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         grid.addWidget(QLabel("Way of working"), 0, 0)
-        grid.addWidget(self.mode_combo, 0, 1, 1, 2)
+        grid.addWidget(self.mode_combo, 0, 1)
 
         # --- quality -----------------------------------------------------
         self.quality_slider = QSlider(Qt.Horizontal)
@@ -118,7 +119,7 @@ class ShrinkPanel(FileQueuePanel):
         self.quality_caption = QLabel("Quality")
         grid.addWidget(self.quality_caption, 1, 0)
         grid.addWidget(self.quality_slider, 1, 1)
-        grid.addWidget(self.quality_label, 1, 2)
+        grid.addWidget(self.quality_label, 2, 0, 1, 2)
 
         # --- target size -------------------------------------------------
         self.target_combo = QComboBox()
@@ -131,9 +132,12 @@ class ShrinkPanel(FileQueuePanel):
         self.target_spin.setSuffix(" KB")
         self.target_spin.setToolTip("The size each file must stay under, in kilobytes.")
         self.target_caption = QLabel("Stay under")
-        grid.addWidget(self.target_caption, 2, 0)
-        grid.addWidget(self.target_combo, 2, 1)
-        grid.addWidget(self.target_spin, 2, 2)
+        target_row = QHBoxLayout()
+        target_row.setSpacing(8)
+        target_row.addWidget(self.target_combo, 1)
+        target_row.addWidget(self.target_spin)
+        grid.addWidget(self.target_caption, 3, 0)
+        grid.addLayout(target_row, 3, 1)
 
         # --- PNG colours -------------------------------------------------
         self.png_combo = QComboBox()
@@ -144,13 +148,13 @@ class ShrinkPanel(FileQueuePanel):
             "Logos, icons and screenshots survive 64 or even 32 colours and get\n"
             "several times lighter. This setting does nothing to JPG files."
         )
-        grid.addWidget(QLabel("PNG colours"), 3, 0)
-        grid.addWidget(self.png_combo, 3, 1, 1, 2)
+        grid.addWidget(QLabel("PNG colours"), 4, 0)
+        grid.addWidget(self.png_combo, 4, 1)
 
         # --- tick boxes --------------------------------------------------
         checks = QVBoxLayout()
         checks.setSpacing(4)
-        self.metadata_check = QCheckBox("Remove hidden information (camera model, GPS position, date)")
+        self.metadata_check = QCheckBox("Remove hidden data (camera, GPS position, date)")
         self.metadata_check.setToolTip(
             "Photographs carry hidden data, including where they were taken.\n"
             "Removing it makes the file a little lighter and stops you publishing\n"
@@ -163,11 +167,12 @@ class ShrinkPanel(FileQueuePanel):
         )
         checks.addWidget(self.metadata_check)
         checks.addWidget(self.overwrite_check)
-        grid.addLayout(checks, 4, 0, 1, 3)
+        grid.addLayout(checks, 5, 0, 1, 2)
 
         self.total_label = QLabel()
         self.total_label.setObjectName("SectionLabel")
-        grid.addWidget(self.total_label, 5, 0, 1, 3)
+        grid.addWidget(self.total_label, 6, 0, 1, 2)
+        grid.setColumnStretch(1, 1)
 
     def build_extra_area(self) -> Optional[QWidget]:
         box = QGroupBox("Before and after")

@@ -48,6 +48,29 @@ def _install_crash_handler() -> None:
     sys.excepthook = hook
 
 
+#: the name Windows files Promak under in the taskbar; see _own_taskbar_entry
+APP_USER_MODEL_ID = "Promak.Promak.App"
+
+
+def _own_taskbar_entry() -> None:
+    """Make Windows show the Promak logo in the taskbar, not Python's.
+
+    Promak runs inside Python (pythonw.exe).  Unless told otherwise,
+    Windows groups the window under Python and borrows Python's icon for
+    the taskbar button, even though the window itself has the Promak logo.
+    Giving the process an application id of its own fixes that.  It must
+    happen before the first window is created.  Nothing to do elsewhere.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except Exception:  # pragma: no cover - only an icon is at stake
+        log.debug("Could not set the taskbar identity", exc_info=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     setup_logging()
     _install_crash_handler()
@@ -65,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
 
     import promak
 
+    _own_taskbar_entry()
     app = QApplication(argv)
     app.setApplicationName("Promak")
     app.setApplicationDisplayName("Promak")

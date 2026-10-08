@@ -139,18 +139,16 @@ QListWidget#ToolList::item:selected {{
     background: transparent;
 }}
 QPushButton#ThemeToggle {{
-    background-color: {surface_alt};
-    border: 1px solid {border};
-    border-radius: 9px;
-    padding: 7px 10px;
-    color: {text_dim};
-    font-weight: 600;
-    text-align: center;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 0;
+    min-width: 0;
+    min-height: 0;
 }}
 QPushButton#ThemeToggle:hover {{
-    border-color: {accent};
-    color: {text};
     background-color: {accent_soft};
+    border-color: {accent_line};
 }}
 
 /* ================================================= headings ========== */

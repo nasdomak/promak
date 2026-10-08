@@ -26,7 +26,8 @@ from promak.core.config import get_config
 from promak.core.paths import asset_file
 from promak.core.tool_registry import registry
 from promak.ui.theme import normalise as normalise_theme
-from promak.ui.theme import other_theme, stylesheet
+from promak.ui.theme import other_theme, palette, stylesheet
+from promak.ui.theme_icons import switch_icon
 
 log = logging.getLogger(__name__)
 
@@ -41,13 +42,12 @@ class MainWindow(QMainWindow):
         self._theme = normalise_theme(self.config.get("app.theme"))
 
         self.setWindowTitle(f"Promak {promak.__version__}")
-        self.setMinimumSize(1040, 720)
-        self.resize(1240, 860)
+        # three columns side by side need some width
+        self.setMinimumSize(1180, 700)
+        self.resize(1440, 880)
 
         central = QWidget()
         self.setCentralWidget(central)
-        from PySide6.QtWidgets import QHBoxLayout
-
         layout = QHBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -85,6 +85,16 @@ class MainWindow(QMainWindow):
         title.setObjectName("SidebarTitle")
         brand_row.addWidget(logo)
         brand_row.addWidget(title, 1)
+
+        # light/dark switch: just a small sun or moon next to the name
+        self.theme_button = QPushButton()
+        self.theme_button.setObjectName("ThemeToggle")
+        self.theme_button.setCursor(Qt.PointingHandCursor)
+        self.theme_button.setFixedSize(QSize(32, 32))
+        self.theme_button.setIconSize(QSize(18, 18))
+        self.theme_button.setFlat(True)
+        self.theme_button.clicked.connect(self.toggle_theme)
+        brand_row.addWidget(self.theme_button, 0, Qt.AlignVCenter)
         layout.addWidget(brand)
 
         subtitle = QLabel("Free productivity toolbox")
@@ -99,15 +109,6 @@ class MainWindow(QMainWindow):
         self.tool_list.currentRowChanged.connect(self._on_tool_selected)
         layout.addWidget(self.tool_list, 1)
 
-        self.theme_button = QPushButton()
-        self.theme_button.setObjectName("ThemeToggle")
-        self.theme_button.setCursor(Qt.PointingHandCursor)
-        self.theme_button.clicked.connect(self.toggle_theme)
-        button_row = QHBoxLayout()
-        button_row.setContentsMargins(12, 4, 12, 6)
-        button_row.addWidget(self.theme_button)
-        layout.addLayout(button_row)
-
         version = QLabel(f"v{promak.__version__}  -  MIT licence")
         version.setObjectName("SidebarFooter")
         version.setAlignment(Qt.AlignCenter)
@@ -118,13 +119,12 @@ class MainWindow(QMainWindow):
     # -------------------------------------------------------------- theme
     def _refresh_theme_button(self) -> None:
         going_to = other_theme(self._theme)
-        self.theme_button.setText(
-            "Switch to dark colours" if going_to == "dark" else "Switch to light colours"
-        )
+        self.theme_button.setIcon(switch_icon(self._theme, palette(self._theme)["text_dim"]))
         self.theme_button.setToolTip(
-            "Changes the colours of the whole window straight away.\n"
-            "Promak remembers your choice for next time."
+            ("Dark colours" if going_to == "dark" else "Light colours")
+            + "\nPromak remembers your choice for next time."
         )
+        self.theme_button.setAccessibleName(f"Switch to {going_to} colours")
 
     def toggle_theme(self) -> None:
         """Flip between the light and the dark palette, and remember it."""

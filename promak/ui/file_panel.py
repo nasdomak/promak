@@ -1,7 +1,8 @@
 """The screen shared by every file-to-file tool.
 
 It draws the three numbered boxes, the queue, the activity log and the
-footer, and it runs the queue in a background thread.  A tool only has to
+footer - side by side in three columns - and it runs the queue in a
+background thread.  A tool only has to
 say which files it accepts, which options it offers and which engine does
 the work - the rest is written once here.
 """
@@ -25,11 +26,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QScrollArea,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -42,6 +41,7 @@ from promak.core.filejobs import FileJob, FileStage, apply_snapshot
 from promak.core.imaging import RASTER_EXTENSIONS, human_size
 from promak.core.paths import default_output_dir, open_in_file_manager
 from promak.ui.batch_worker import BatchWorker
+from promak.ui.columns import activity_column, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -100,14 +100,10 @@ class FileQueuePanel(QWidget):
         self.notice.setVisible(False)
         outer.addWidget(self.notice)
 
-        splitter = QSplitter(Qt.Vertical)
-        splitter.setChildrenCollapsible(False)
-        splitter.addWidget(self._build_setup_area())
-        splitter.addWidget(self._build_queue_area())
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([430, 450])
-        outer.addWidget(splitter, 1)
+        setup = self._build_setup_area()
+        queue = self._build_queue_area()
+        activity, self.log_view = activity_column(self.build_extra_area())
+        outer.addWidget(side_by_side([setup, queue, activity], f"{self.TOOL_ID}.column_widths"), 1)
         outer.addLayout(self._build_footer())
 
     def _build_setup_area(self) -> QWidget:
@@ -138,9 +134,10 @@ class FileQueuePanel(QWidget):
         add_folder = QPushButton("Add a folder...")
         add_folder.setToolTip("Add every supported picture directly inside a folder.")
         add_folder.clicked.connect(self._browse_folder)
-        buttons.addWidget(self.count_label, 1)
-        buttons.addWidget(add_files)
-        buttons.addWidget(add_folder)
+        self.count_label.setWordWrap(True)
+        files_layout.addWidget(self.count_label)
+        buttons.addWidget(add_files, 1)
+        buttons.addWidget(add_folder, 1)
         files_layout.addLayout(buttons)
         layout.addWidget(files_box)
 
@@ -155,6 +152,8 @@ class FileQueuePanel(QWidget):
         row.addWidget(self.destination_input, 1)
         row.addWidget(browse)
         dest_layout.addLayout(row)
+        self.destination_input.textChanged.connect(self._on_destination_changed)
+        self.destination_input.editingFinished.connect(self.save_settings)
 
         self.beside_check = QCheckBox("Save each new file next to its original")
         self.beside_check.setToolTip(
@@ -165,10 +164,10 @@ class FileQueuePanel(QWidget):
         dest_layout.addWidget(self.beside_check)
 
         hint = QLabel(
-            "This folder is used for every file you add next. To send some files "
-            'somewhere else, select their rows in the queue and use "Change folder" '
-            "- general, specific or mixed all work. Your original files are never "
-            "changed or deleted."
+            "Every file in the queue is saved here, also the ones added before you "
+            'changed it. To send some files somewhere else, select their rows in the '
+            'queue and use "Change folder": those keep their own folder. Your '
+            "original files are never changed or deleted."
         )
         hint.setObjectName("HintLabel")
         hint.setWordWrap(True)
@@ -180,10 +179,6 @@ class FileQueuePanel(QWidget):
         self.build_options(options_box)
         layout.addWidget(options_box)
 
-        extra = self.build_extra_area()
-        if extra is not None:
-            layout.addWidget(extra)
-
         layout.addStretch(1)
         scroll.setWidget(container)
         return scroll
@@ -194,22 +189,16 @@ class FileQueuePanel(QWidget):
         layout.setContentsMargins(0, 6, 0, 0)
         layout.setSpacing(8)
 
-        header = QHBoxLayout()
         label = QLabel("Queue")
         label.setObjectName("SectionLabel")
-        header.addWidget(label)
-        header.addStretch(1)
-        for text, slot in (
+        layout.addWidget(label)
+        layout.addLayout(queue_buttons((
             ("Change folder", self._change_folder_for_selection),
             ("Open folder", self._open_selected_folder),
             ("Retry failed", self._retry_failed),
             ("Remove selected", self._remove_selected),
             ("Clear finished", self._clear_finished),
-        ):
-            button = QPushButton(text)
-            button.clicked.connect(slot)
-            header.addWidget(button)
-        layout.addLayout(header)
+        )))
 
         self._columns = ["File", *self.EXTRA_COLUMNS, "Destination", "Step", "Progress", "Details"]
         self.COL_NAME = 0
@@ -230,22 +219,12 @@ class FileQueuePanel(QWidget):
             view.setSectionResizeMode(column, QHeaderView.Interactive)
         for index in range(len(self.EXTRA_COLUMNS)):
             self.table.setColumnWidth(1 + index, 96)
-        self.table.setColumnWidth(self.COL_DESTINATION, 190)
-        self.table.setColumnWidth(self.COL_STEP, 84)
-        self.table.setColumnWidth(self.COL_PROGRESS, 110)
-        self.table.setColumnWidth(self.COL_DETAIL, 230)
+        self.table.setColumnWidth(self.COL_DESTINATION, 160)
+        self.table.setColumnWidth(self.COL_STEP, 78)
+        self.table.setColumnWidth(self.COL_PROGRESS, 100)
+        self.table.setColumnWidth(self.COL_DETAIL, 170)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self.table, 1)
-
-        log_label = QLabel("Activity")
-        log_label.setObjectName("SectionLabel")
-        layout.addWidget(log_label)
-        self.log_view = QPlainTextEdit()
-        self.log_view.setObjectName("LogView")
-        self.log_view.setReadOnly(True)
-        self.log_view.setMaximumBlockCount(2000)
-        self.log_view.setFixedHeight(110)
-        layout.addWidget(self.log_view)
         return container
 
     def _build_footer(self) -> QHBoxLayout:
@@ -276,7 +255,7 @@ class FileQueuePanel(QWidget):
         QVBoxLayout(box).addWidget(QLabel("No option."))
 
     def build_extra_area(self) -> Optional[QWidget]:
-        """An optional fourth block, for example a preview."""
+        """An optional block shown above the activity log, for example a preview."""
         return None
 
     def create_engine(self, cancel_event: threading.Event) -> BatchEngine:
@@ -382,8 +361,8 @@ class FileQueuePanel(QWidget):
                 continue
             if str(path).lower() in known:
                 continue
-            folder = path.parent if self.beside_check.isChecked() else destination
-            job = FileJob(source=path, destination=folder)
+            job = FileJob(source=path, destination=destination)
+            job.destination = self._folder_for(job)
             self._jobs.append(job)
             known.add(str(path).lower())
             self._add_row(job)
@@ -498,12 +477,15 @@ class FileQueuePanel(QWidget):
         )
         if not folder:
             return
+        moved = 0
         for job in jobs:
             if job.stage.is_final:
                 continue
+            job.own_folder = Path(folder)
             job.destination = Path(folder)
             self._refresh_row(job)
-        self._log("info", f"{len(jobs)} file(s) will be saved in {folder}.")
+            moved += 1
+        self._log("info", f"{moved} file(s) will be saved in {folder}.")
 
     def _open_selected_folder(self) -> None:
         jobs = self._selected_jobs() or self._jobs
@@ -540,13 +522,36 @@ class FileQueuePanel(QWidget):
     # ==================================================================
     # running
     # ==================================================================
+    # ------------------------------------------------------ destinations
+    def _main_folder(self) -> Path:
+        """The folder typed or picked in box 2, as it is right now."""
+        return Path(self.destination_input.text().strip() or str(default_output_dir())).expanduser()
+
+    def _folder_for(self, job: FileJob) -> Path:
+        """Where a file that has not started yet will be saved.
+
+        A folder picked for the file alone wins; then "next to its
+        original"; otherwise the main folder of box 2, read right now.
+        """
+        if job.own_folder is not None:
+            return job.own_folder
+        if self.beside_check.isChecked():
+            return job.source.parent
+        return self._main_folder()
+
+    def _follow_main_folder(self) -> None:
+        """Files still waiting take the folder box 2 says now."""
+        for job in self._jobs:
+            if job.stage is FileStage.QUEUED:
+                job.destination = self._folder_for(job)
+                self._refresh_row(job)
+
+    def _on_destination_changed(self, *_args) -> None:
+        self._follow_main_folder()
+
     def _on_beside_toggled(self, checked: bool) -> None:
         self.destination_input.setEnabled(not checked)
-        if checked:
-            for job in self._jobs:
-                if not job.stage.is_final:
-                    job.destination = job.source.parent
-                    self._refresh_row(job)
+        self._follow_main_folder()
 
     def _validated_destination(self) -> Optional[Path]:
         if self.beside_check.isChecked():
@@ -583,6 +588,11 @@ class FileQueuePanel(QWidget):
             return
         if self._validated_destination() is None:
             return
+        # The folder is decided now, not when the file was added: a folder
+        # changed after adding the files is the one that counts.
+        for job in pending:
+            job.destination = self._folder_for(job)
+            self._refresh_row(job)
 
         self.save_settings()
         self.log_view.clear()

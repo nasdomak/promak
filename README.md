@@ -19,7 +19,8 @@ Three tools so far, all in one window:
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 
-Light interface by default, dark on one click, and the choice is remembered.
+Light interface by default; the small sun/moon next to the name switches to dark,
+and the choice is remembered.
 
 ---
 
@@ -134,18 +135,20 @@ python -m promak
 
 ## How to use it
 
-Every screen works the same way: three numbered boxes at the top — **what to
-work on**, **where to put the result**, **how to do it** — a queue underneath
-that shows each file's progress, and one big button at the bottom.
+Every screen works the same way, in three columns side by side: on the left
+three numbered boxes — **what to work on**, **where to put the result**, **how
+to do it**; in the middle the queue with each item's progress; on the right the
+activity log. The dividers between the columns can be dragged. One big button
+at the bottom starts the work.
 
 1. **Add the work.** Paste links, or drag your pictures into the window.
-2. **Pick the destination folder.** It applies to everything you add afterwards;
-   to send some files elsewhere, select their rows in the queue and press
-   *Change folder*.
+2. **Pick the destination folder.** It applies to everything in the queue, also
+   what you added before changing it; to send some files elsewhere, select their
+   rows in the queue and press *Change folder* - those keep their own folder.
 3. **Set the options**, then press the button.
 
 A failed item never stops the others: fix it later with *Retry failed*. The
-activity log at the bottom records everything.
+activity log records everything.
 
 ### Choosing a transcription model
 
@@ -195,6 +198,8 @@ promak/
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
 │   ├── theme.py           # the light and dark palettes
+│   ├── theme_icons.py     # the sun and moon of the light/dark switch
+│   ├── columns.py         # the three side-by-side columns of every tool
 │   ├── file_panel.py      # the screen every file tool inherits
 │   └── preview.py         # the before/after preview
 └── tools/

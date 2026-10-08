@@ -95,8 +95,8 @@ class VectorizePanel(FileQueuePanel):
             "Curves follow round edges smoothly.\n"
             "Straight lines give an angular, technical look and a lighter file."
         )
-        grid.addWidget(QLabel("Edges"), 0, 2)
-        grid.addWidget(self.shape_combo, 0, 3)
+        grid.addWidget(QLabel("Edges"), 1, 0)
+        grid.addWidget(self.shape_combo, 1, 1)
 
         # --- detail slider ----------------------------------------------
         self.detail_slider = QSlider(Qt.Horizontal)
@@ -106,13 +106,13 @@ class VectorizePanel(FileQueuePanel):
         self.detail_slider.setTickPosition(QSlider.TicksBelow)
         self.detail_slider.setTickInterval(1)
         self.detail_slider.valueChanged.connect(self._on_detail_changed)
-        grid.addWidget(QLabel("Detail"), 1, 0)
-        grid.addWidget(self.detail_slider, 1, 1)
+        grid.addWidget(QLabel("Detail"), 2, 0)
+        grid.addWidget(self.detail_slider, 2, 1)
 
         self.detail_label = QLabel()
         self.detail_label.setObjectName("HintLabel")
         self.detail_label.setWordWrap(True)
-        grid.addWidget(self.detail_label, 1, 2, 1, 2)
+        grid.addWidget(self.detail_label, 3, 0, 1, 2)
 
         # --- tracing size -----------------------------------------------
         self.size_combo = QComboBox()
@@ -123,12 +123,12 @@ class VectorizePanel(FileQueuePanel):
             "The result is made of curves, so it has no size of its own: reading a "
             "huge picture only makes a heavier file, not a better one."
         )
-        grid.addWidget(QLabel("Read at"), 2, 0)
-        grid.addWidget(self.size_combo, 2, 1)
+        grid.addWidget(QLabel("Read at"), 4, 0)
+        grid.addWidget(self.size_combo, 4, 1)
 
         checks = QVBoxLayout()
         checks.setSpacing(4)
-        self.background_check = QCheckBox("Put a white background behind see-through parts")
+        self.background_check = QCheckBox("White background behind see-through parts")
         self.background_check.setToolTip(
             "Leave this off to keep transparency. Turn it on when the picture has a "
             "see-through background and you want a solid white sheet instead."
@@ -140,7 +140,7 @@ class VectorizePanel(FileQueuePanel):
         )
         checks.addWidget(self.background_check)
         checks.addWidget(self.overwrite_check)
-        grid.addLayout(checks, 2, 2, 1, 2)
+        grid.addLayout(checks, 5, 0, 1, 2)
 
         for widget in (self.colour_combo, self.shape_combo, self.size_combo):
             widget.currentIndexChanged.connect(self._on_option_changed)
@@ -150,11 +150,12 @@ class VectorizePanel(FileQueuePanel):
         self.components_label = QLabel()
         self.components_label.setObjectName("HintLabel")
         self.components_label.setWordWrap(True)
-        grid.addWidget(self.components_label, 3, 0, 1, 3)
+        grid.addWidget(self.components_label, 6, 0, 1, 2)
 
         check_button = QPushButton("Check components")
         check_button.clicked.connect(self._check_components)
-        grid.addWidget(check_button, 3, 3)
+        grid.addWidget(check_button, 7, 0, 1, 2)
+        grid.setColumnStretch(1, 1)
 
     def build_extra_area(self) -> Optional[QWidget]:
         box = QGroupBox("Before and after")

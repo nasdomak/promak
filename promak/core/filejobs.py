@@ -50,6 +50,9 @@ class FileJob:
     source_bytes: int = 0
     output_bytes: int = 0
     info: Dict[str, str] = field(default_factory=dict)
+    #: a folder picked for this file alone with "Change folder"; when it is
+    #: None the file follows the main destination of the screen
+    own_folder: Optional[Path] = None
 
     def __post_init__(self) -> None:
         self.source = Path(self.source)

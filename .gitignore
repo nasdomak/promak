@@ -44,3 +44,6 @@ Claude outputs/
 
 # Il mio file personale per caricare su GitHub (non serve a chi scarica Promak)
 carica_su_github.bat
+
+# Pictures of the screens taken by tools/screenshots.py
+out/

@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -62,6 +61,7 @@ from promak.tools.video.models import (
     looks_like_video_url,
 )
 from promak.tools.video.worker import PipelineWorker
+from promak.ui.columns import activity_column, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -182,14 +182,13 @@ class VideoPanel(QWidget):
         self.dependency_banner.setTextInteractionFlags(Qt.TextSelectableByMouse)
         outer.addWidget(self.dependency_banner)
 
-        splitter = QSplitter(Qt.Vertical)
-        splitter.setChildrenCollapsible(False)
-        splitter.addWidget(self._build_setup_area())
-        splitter.addWidget(self._build_queue_area())
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([420, 460])
-        outer.addWidget(splitter, 1)
+        outer.addWidget(
+            side_by_side(
+                [self._build_setup_area(), self._build_queue_area(), self._build_activity_area()],
+                "video.column_widths",
+            ),
+            1,
+        )
 
         outer.addLayout(self._build_footer())
 
@@ -216,20 +215,19 @@ class VideoPanel(QWidget):
         self.url_input.setFixedHeight(92)
         links_layout.addWidget(self.url_input)
 
-        links_buttons = QHBoxLayout()
         self.expand_playlists = QCheckBox("Split playlists into single videos")
         self.expand_playlists.setToolTip(
             "When a link points to a playlist or a channel, add every video it contains."
         )
+        links_layout.addWidget(self.expand_playlists)
+        links_buttons = QHBoxLayout()
         paste_button = QPushButton("Paste from clipboard")
         paste_button.clicked.connect(self._paste_from_clipboard)
         add_button = QPushButton("Add to queue")
         add_button.setObjectName("PrimaryButton")
         add_button.clicked.connect(self._add_urls)
-        links_buttons.addWidget(self.expand_playlists)
-        links_buttons.addStretch(1)
-        links_buttons.addWidget(paste_button)
-        links_buttons.addWidget(add_button)
+        links_buttons.addWidget(paste_button, 1)
+        links_buttons.addWidget(add_button, 1)
         links_layout.addLayout(links_buttons)
         layout.addWidget(links_box)
 
@@ -244,10 +242,12 @@ class VideoPanel(QWidget):
         row.addWidget(self.destination_input, 1)
         row.addWidget(browse)
         dest_layout.addLayout(row)
+        self.destination_input.textChanged.connect(self._on_destination_changed)
+        self.destination_input.editingFinished.connect(self.save_settings)
         hint = QLabel(
-            "This folder is used for every link you add next. "
-            "To send some videos somewhere else, select their rows in the queue "
-            "and use \"Change folder\" - general, specific or mixed all work."
+            "Every video in the queue is saved here, also the ones added before "
+            "you changed it. To send some videos somewhere else, select their rows "
+            "in the queue and use \"Change folder\": those keep their own folder."
         )
         hint.setObjectName("HintLabel")
         hint.setWordWrap(True)
@@ -283,6 +283,7 @@ class VideoPanel(QWidget):
         grid.setHorizontalSpacing(18)
         grid.setVerticalSpacing(9)
 
+        # Two columns, so the block fits the left column of the screen.
         self.keep_video_check = QCheckBox("Keep the video (MP4)")
         self.make_mp3_check = QCheckBox("Extract the audio (MP3)")
         self.transcribe_check = QCheckBox("Transcribe the audio")
@@ -290,39 +291,36 @@ class VideoPanel(QWidget):
             widget.toggled.connect(self._on_options_changed)
         grid.addWidget(self.keep_video_check, 0, 0)
         grid.addWidget(self.make_mp3_check, 0, 1)
-        grid.addWidget(self.transcribe_check, 0, 2)
+        grid.addWidget(self.transcribe_check, 1, 0, 1, 2)
 
         self.quality_combo = QComboBox()
         self.quality_combo.addItems(VIDEO_QUALITIES)
-        grid.addWidget(QLabel("Video quality"), 1, 0)
-        grid.addWidget(self.quality_combo, 2, 0)
+        grid.addWidget(QLabel("Video quality"), 2, 0)
+        grid.addWidget(self.quality_combo, 3, 0)
 
         self.bitrate_combo = QComboBox()
         self.bitrate_combo.addItems(MP3_BITRATES)
-        grid.addWidget(QLabel("MP3 quality"), 1, 1)
-        grid.addWidget(self.bitrate_combo, 2, 1)
+        grid.addWidget(QLabel("MP3 quality"), 2, 1)
+        grid.addWidget(self.bitrate_combo, 3, 1)
 
         self.model_combo = QComboBox()
         for name in WHISPER_MODELS:
             self.model_combo.addItem(f"{name}  ({WHISPER_MODEL_SIZES[name]})", name)
         self.model_combo.currentIndexChanged.connect(self._on_options_changed)
-        grid.addWidget(QLabel("Transcription model"), 1, 2)
-        grid.addWidget(self.model_combo, 2, 2)
+        grid.addWidget(QLabel("Transcription model"), 4, 0)
+        grid.addWidget(self.model_combo, 5, 0)
 
         self.language_combo = QComboBox()
         for code, label in LANGUAGES.items():
             self.language_combo.addItem(label, code)
-        grid.addWidget(QLabel("Spoken language"), 3, 0)
-        grid.addWidget(self.language_combo, 4, 0)
+        grid.addWidget(QLabel("Spoken language"), 4, 1)
+        grid.addWidget(self.language_combo, 5, 1)
 
-        formats = QHBoxLayout()
         self.txt_check = QCheckBox("Transcript .txt")
         self.srt_check = QCheckBox("Subtitles .srt")
-        formats.addWidget(self.txt_check)
-        formats.addWidget(self.srt_check)
-        formats.addStretch(1)
-        grid.addWidget(QLabel("Transcript files"), 3, 1, 1, 2)
-        grid.addLayout(formats, 4, 1, 1, 2)
+        grid.addWidget(QLabel("Transcript files"), 6, 0, 1, 2)
+        grid.addWidget(self.txt_check, 7, 0)
+        grid.addWidget(self.srt_check, 7, 1)
 
         self.cookies_combo = QComboBox()
         for code, label in COOKIE_BROWSERS.items():
@@ -334,8 +332,8 @@ class VideoPanel(QWidget):
         )
         cookies_label = QLabel("Use cookies from")
         cookies_label.setToolTip(self.cookies_combo.toolTip())
-        grid.addWidget(cookies_label, 5, 0)
-        grid.addWidget(self.cookies_combo, 6, 0)
+        grid.addWidget(cookies_label, 8, 0, 1, 2)
+        grid.addWidget(self.cookies_combo, 9, 0, 1, 2)
 
         self.compatible_check = QCheckBox("Play on any device (H.264)")
         self.compatible_check.setToolTip(
@@ -347,15 +345,17 @@ class VideoPanel(QWidget):
             "player handles modern codecs."
         )
         self.compatible_check.toggled.connect(self._on_options_changed)
-        grid.addWidget(self.compatible_check, 5, 1, 1, 2)
+        grid.addWidget(self.compatible_check, 10, 0, 1, 2)
 
         self.overwrite_check = QCheckBox("Redo files that already exist")
-        grid.addWidget(self.overwrite_check, 6, 1, 1, 2)
+        grid.addWidget(self.overwrite_check, 11, 0, 1, 2)
 
         self.options_hint = QLabel()
         self.options_hint.setObjectName("HintLabel")
         self.options_hint.setWordWrap(True)
-        grid.addWidget(self.options_hint, 7, 0, 1, 3)
+        grid.addWidget(self.options_hint, 12, 0, 1, 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
         layout.addWidget(options_box)
 
         layout.addStretch(1)
@@ -368,22 +368,16 @@ class VideoPanel(QWidget):
         layout.setContentsMargins(0, 4, 0, 0)
         layout.setSpacing(8)
 
-        header = QHBoxLayout()
         label = QLabel("Queue")
         label.setObjectName("SectionLabel")
-        header.addWidget(label)
-        header.addStretch(1)
-        for text, slot in (
+        layout.addWidget(label)
+        layout.addLayout(queue_buttons((
             ("Change folder", self._change_folder_for_selection),
             ("Open folder", self._open_selected_folder),
             ("Retry failed", self._retry_failed),
             ("Remove selected", self._remove_selected),
             ("Clear finished", self._clear_finished),
-        ):
-            button = QPushButton(text)
-            button.clicked.connect(slot)
-            header.addWidget(button)
-        layout.addLayout(header)
+        )))
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["Video", "Destination", "Step", "Progress", "Details"])
@@ -397,21 +391,15 @@ class VideoPanel(QWidget):
         header_view.setSectionResizeMode(COL_STEP, QHeaderView.ResizeToContents)
         header_view.setSectionResizeMode(COL_PROGRESS, QHeaderView.Fixed)
         header_view.setSectionResizeMode(COL_DETAIL, QHeaderView.Interactive)
-        self.table.setColumnWidth(COL_FOLDER, 220)
-        self.table.setColumnWidth(COL_PROGRESS, 130)
-        self.table.setColumnWidth(COL_DETAIL, 220)
+        self.table.setColumnWidth(COL_FOLDER, 170)
+        self.table.setColumnWidth(COL_PROGRESS, 110)
+        self.table.setColumnWidth(COL_DETAIL, 170)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         layout.addWidget(self.table, 1)
+        return container
 
-        log_label = QLabel("Activity")
-        log_label.setObjectName("SectionLabel")
-        layout.addWidget(log_label)
-        self.log_view = QPlainTextEdit()
-        self.log_view.setObjectName("LogView")
-        self.log_view.setReadOnly(True)
-        self.log_view.setMaximumBlockCount(2000)
-        self.log_view.setFixedHeight(120)
-        layout.addWidget(self.log_view)
+    def _build_activity_area(self) -> QWidget:
+        container, self.log_view = activity_column()
         return container
 
     def _build_footer(self) -> QHBoxLayout:
@@ -656,7 +644,7 @@ class VideoPanel(QWidget):
 
     def _on_playlist_failed(self, source: str, error: str) -> None:
         self._log("error", f"Could not read {source}: {error}")
-        self._append_jobs([source], Path(self.destination_input.text().strip()))
+        self._append_jobs([source], self._main_folder())
 
     def _append_jobs(self, urls: List[str], destination: Path, titles: Optional[List[str]] = None) -> None:
         added = 0
@@ -734,16 +722,52 @@ class VideoPanel(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Destination folder for the selected videos", start)
         if not folder:
             return
+        moved = 0
         for job in jobs:
             if job.stage.is_final:
                 continue
+            job.own_folder = Path(folder)
             job.destination = Path(folder)
-            row = self._rows.get(job.id)
-            if row is not None:
-                item = self.table.item(row, COL_FOLDER)
-                item.setText(folder)
-                item.setToolTip(folder)
-        self._log("info", f"{len(jobs)} video(s) will be saved in {folder}.")
+            self._show_folder(job)
+            moved += 1
+        self._log("info", f"{moved} video(s) will be saved in {folder}.")
+
+    # ------------------------------------------------------ destinations
+    def _main_folder(self) -> Path:
+        """The folder typed or picked in box 2, as it is right now."""
+        return Path(self.destination_input.text().strip() or str(default_output_dir())).expanduser()
+
+    def _folder_for(self, job: Job) -> Path:
+        """Where a video that has not started yet will be saved."""
+        return job.own_folder if job.own_folder is not None else self._main_folder()
+
+    def _show_folder(self, job: Job) -> None:
+        row = self._rows.get(job.id)
+        item = self.table.item(row, COL_FOLDER) if row is not None else None
+        if item is not None:
+            item.setText(str(job.destination))
+            item.setToolTip(str(job.destination))
+
+    def _settle_folders(self, jobs: List[Job]) -> None:
+        """Decide, right before the run, where every waiting video goes.
+
+        The folder is read again from box 2 at this moment, so a folder
+        changed after the links were added is the one that counts.  This also
+        undoes what a previous attempt left in ``job.destination`` (the
+        pipeline replaces it with the video's own sub-folder), so retrying a
+        failed video never nests a folder inside itself.
+        """
+        for job in jobs:
+            job.destination = self._folder_for(job)
+            self._show_folder(job)
+
+    def _on_destination_changed(self, *_args) -> None:
+        """Videos still waiting follow the new main folder straight away."""
+        self._on_layout_changed()
+        for job in self._jobs:
+            if job.stage is Stage.QUEUED and job.follows_main_folder():
+                job.destination = self._main_folder()
+                self._show_folder(job)
 
     def _open_selected_folder(self) -> None:
         jobs = self._selected_jobs() or self._jobs
@@ -823,6 +847,10 @@ class VideoPanel(QWidget):
                 + "\n".join(f"- {d.label}: pip install -U {d.pip_name}" for d in blocking),
             )
             return
+
+        if self._validated_destination() is None:
+            return
+        self._settle_folders(pending)
 
         self.save_settings()
         self.log_view.clear()

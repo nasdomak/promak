@@ -135,10 +135,16 @@ class Job:
     outputs: Dict[str, Path] = field(default_factory=dict)
     #: filled in by the pipeline: the folders this video's files went into
     layout: Optional["object"] = None
+    #: a folder picked for this video alone with "Change folder"; when it is
+    #: None the video follows the main destination folder of the screen
+    own_folder: Optional[Path] = None
 
     @property
     def display_name(self) -> str:
         return self.title or self.url
+
+    def follows_main_folder(self) -> bool:
+        return self.own_folder is None
 
     @property
     def work_dir(self) -> Path:
