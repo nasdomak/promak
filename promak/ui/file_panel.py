@@ -41,7 +41,7 @@ from promak.core.filejobs import FileJob, FileStage, apply_snapshot
 from promak.core.imaging import RASTER_EXTENSIONS, human_size
 from promak.core.paths import default_output_dir, open_in_file_manager
 from promak.ui.batch_worker import BatchWorker
-from promak.ui.columns import activity_column, queue_buttons, side_by_side
+from promak.ui.columns import activity_column, fit_setup_column, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -181,6 +181,7 @@ class FileQueuePanel(QWidget):
 
         layout.addStretch(1)
         scroll.setWidget(container)
+        fit_setup_column(scroll, container)
         return scroll
 
     def _build_queue_area(self) -> QWidget:

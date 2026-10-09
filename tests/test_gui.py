@@ -254,3 +254,37 @@ def test_switch_icons_are_drawn(qapp):
             1 for x in range(32) for y in range(32) if image.pixelColor(x, y).alpha() > 0
         )
         assert painted > 40, "the icon is empty"
+
+
+def test_left_column_never_cuts_its_content(qapp, monkeypatch):
+    """At the smallest window size every column still fits what it holds."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QScrollArea, QSplitter
+
+    from promak.tools.video import panel as video_module
+    from promak.ui.main_window import MainWindow
+
+    monkeypatch.setattr(video_module, "check_dependencies", lambda: [])
+    window = MainWindow()
+    try:
+        window.resize(window.minimumSize())
+        window.show()
+        qapp.processEvents()
+        for index in range(window.stack.count()):
+            page = window.stack.widget(index)
+            window.stack.setCurrentIndex(index)
+            qapp.processEvents()
+            splitter = next(s for s in page.findChildren(QSplitter) if s.objectName() == "ColumnSplitter")
+            left = splitter.widget(0)
+            assert isinstance(left, QScrollArea)
+            assert left.horizontalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
+            content = left.widget()
+            assert content.width() >= content.minimumSizeHint().width(), (
+                f"page {index}: the left column cuts its content "
+                f"({content.width()} < {content.minimumSizeHint().width()})"
+            )
+            # nothing sticks out of the window on the right
+            assert splitter.width() <= page.width()
+    finally:
+        window.close()
+        window.deleteLater()

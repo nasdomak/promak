@@ -61,7 +61,7 @@ from promak.tools.video.models import (
     looks_like_video_url,
 )
 from promak.tools.video.worker import PipelineWorker
-from promak.ui.columns import activity_column, queue_buttons, side_by_side
+from promak.ui.columns import activity_column, fit_setup_column, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -360,6 +360,7 @@ class VideoPanel(QWidget):
 
         layout.addStretch(1)
         scroll.setWidget(container)
+        fit_setup_column(scroll, container)
         return scroll
 
     def _build_queue_area(self) -> QWidget:

@@ -13,10 +13,12 @@ from typing import Callable, Optional, Sequence, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QGridLayout,
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -26,9 +28,9 @@ from promak.core.config import get_config
 
 #: starting widths of the three columns (setup, queue, activity), in pixels;
 #: Qt scales them to the room actually available
-DEFAULT_WIDTHS = (420, 620, 340)
+DEFAULT_WIDTHS = (500, 640, 360)
 #: below this a column cannot be squeezed by dragging a divider
-MINIMUM_WIDTHS = (320, 340, 220)
+MINIMUM_WIDTHS = (380, 340, 220)
 
 
 def side_by_side(columns: Sequence[QWidget], settings_key: str) -> QSplitter:
@@ -44,7 +46,8 @@ def side_by_side(columns: Sequence[QWidget], settings_key: str) -> QSplitter:
     splitter.setHandleWidth(14)
     for index, widget in enumerate(columns):
         if index < len(MINIMUM_WIDTHS):
-            widget.setMinimumWidth(MINIMUM_WIDTHS[index])
+            # a column may already know it needs more (see fit_setup_column)
+            widget.setMinimumWidth(max(widget.minimumWidth(), MINIMUM_WIDTHS[index]))
         splitter.addWidget(widget)
         # the queue takes the extra room when the window grows
         splitter.setStretchFactor(index, 1 if index == 1 else 0)
@@ -64,6 +67,21 @@ def side_by_side(columns: Sequence[QWidget], settings_key: str) -> QSplitter:
         lambda *_args: config.set(settings_key, [int(v) for v in splitter.sizes()])
     )
     return splitter
+
+
+def fit_setup_column(scroll: QScrollArea, content: QWidget) -> None:
+    """Make the left column follow its own width, never cut its content.
+
+    The column scrolls up and down only.  Drop-down lists stop asking for
+    the width of their longest entry (the open list still shows it whole),
+    and the column is never squeezed below what its content needs.
+    """
+    for combo in content.findChildren(QComboBox):
+        combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(8)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    needed = content.minimumSizeHint().width() + scroll.verticalScrollBar().sizeHint().width() + 6
+    scroll.setMinimumWidth(max(scroll.minimumWidth(), needed))
 
 
 def queue_buttons(actions: Sequence[Tuple[str, Callable]], per_row: int = 3) -> QGridLayout:

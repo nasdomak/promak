@@ -106,6 +106,8 @@ class MainWindow(QMainWindow):
 
         self.tool_list = QListWidget()
         self.tool_list.setObjectName("ToolList")
+        self.tool_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.tool_list.setTextElideMode(Qt.ElideRight)
         self.tool_list.currentRowChanged.connect(self._on_tool_selected)
         layout.addWidget(self.tool_list, 1)
 
