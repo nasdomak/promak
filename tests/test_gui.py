@@ -97,7 +97,8 @@ def test_video_folder_changed_after_adding_is_the_one_used(video_panel, tmp_path
     assert [job.destination for job in started] == [new, new]
     assert new.is_dir()
     # the queue shows the folder that will really be used
-    assert video_panel.table.item(0, 1).text() == str(new)
+    assert video_panel.table.item(0, 1).toolTip() == str(new)
+    assert video_panel.table.item(0, 1).text() == "new"
 
 
 def test_video_folder_typed_after_adding_is_the_one_used(video_panel, tmp_path):

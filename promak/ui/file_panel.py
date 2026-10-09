@@ -41,7 +41,7 @@ from promak.core.filejobs import FileJob, FileStage, apply_snapshot
 from promak.core.imaging import RASTER_EXTENSIONS, human_size
 from promak.core.paths import default_output_dir, open_in_file_manager
 from promak.ui.batch_worker import BatchWorker
-from promak.ui.columns import activity_column, fit_setup_column, queue_buttons, side_by_side
+from promak.ui.columns import activity_column, fit_setup_column, folder_label, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -219,11 +219,11 @@ class FileQueuePanel(QWidget):
         for column in range(1, len(self._columns)):
             view.setSectionResizeMode(column, QHeaderView.Interactive)
         for index in range(len(self.EXTRA_COLUMNS)):
-            self.table.setColumnWidth(1 + index, 96)
-        self.table.setColumnWidth(self.COL_DESTINATION, 160)
-        self.table.setColumnWidth(self.COL_STEP, 78)
-        self.table.setColumnWidth(self.COL_PROGRESS, 100)
-        self.table.setColumnWidth(self.COL_DETAIL, 170)
+            self.table.setColumnWidth(1 + index, 66)
+        self.table.setColumnWidth(self.COL_DESTINATION, 110)
+        self.table.setColumnWidth(self.COL_STEP, 72)
+        self.table.setColumnWidth(self.COL_PROGRESS, 80)
+        self.table.setColumnWidth(self.COL_DETAIL, 110)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self.table, 1)
         return container
@@ -397,7 +397,7 @@ class FileQueuePanel(QWidget):
         for index in range(len(self.EXTRA_COLUMNS)):
             self.table.setItem(row, 1 + index, QTableWidgetItem(""))
 
-        folder_item = QTableWidgetItem(str(job.destination))
+        folder_item = QTableWidgetItem(folder_label(job.destination))
         folder_item.setToolTip(str(job.destination))
         self.table.setItem(row, self.COL_DESTINATION, folder_item)
         self.table.setItem(row, self.COL_STEP, QTableWidgetItem(job.stage.value))
@@ -423,7 +423,7 @@ class FileQueuePanel(QWidget):
                 item.setText(str(value))
         folder_item = self.table.item(row, self.COL_DESTINATION)
         if folder_item is not None:
-            folder_item.setText(str(job.destination))
+            folder_item.setText(folder_label(job.destination))
             folder_item.setToolTip(str(job.destination))
         step_item = self.table.item(row, self.COL_STEP)
         if step_item is not None:

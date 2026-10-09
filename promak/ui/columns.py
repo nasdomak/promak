@@ -9,6 +9,7 @@ and the widths are remembered per tool.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
 
 from PySide6.QtCore import Qt
@@ -28,7 +29,7 @@ from promak.core.config import get_config
 
 #: starting widths of the three columns (setup, queue, activity), in pixels;
 #: Qt scales them to the room actually available
-DEFAULT_WIDTHS = (500, 640, 360)
+DEFAULT_WIDTHS = (470, 760, 340)
 #: below this a column cannot be squeezed by dragging a divider
 MINIMUM_WIDTHS = (380, 340, 220)
 
@@ -67,6 +68,17 @@ def side_by_side(columns: Sequence[QWidget], settings_key: str) -> QSplitter:
         lambda *_args: config.set(settings_key, [int(v) for v in splitter.sizes()])
     )
     return splitter
+
+
+def folder_label(path) -> str:
+    """How a destination folder is written in the queue: its name only.
+
+    The whole path goes in the tooltip, so the column can stay narrow and
+    leave the room to the name of the video or file.
+    """
+    text = str(path)
+    name = Path(text).name
+    return name or text
 
 
 def fit_setup_column(scroll: QScrollArea, content: QWidget) -> None:

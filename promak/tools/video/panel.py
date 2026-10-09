@@ -61,7 +61,7 @@ from promak.tools.video.models import (
     looks_like_video_url,
 )
 from promak.tools.video.worker import PipelineWorker
-from promak.ui.columns import activity_column, fit_setup_column, queue_buttons, side_by_side
+from promak.ui.columns import activity_column, fit_setup_column, folder_label, queue_buttons, side_by_side
 
 log = logging.getLogger(__name__)
 
@@ -392,9 +392,9 @@ class VideoPanel(QWidget):
         header_view.setSectionResizeMode(COL_STEP, QHeaderView.ResizeToContents)
         header_view.setSectionResizeMode(COL_PROGRESS, QHeaderView.Fixed)
         header_view.setSectionResizeMode(COL_DETAIL, QHeaderView.Interactive)
-        self.table.setColumnWidth(COL_FOLDER, 170)
-        self.table.setColumnWidth(COL_PROGRESS, 110)
-        self.table.setColumnWidth(COL_DETAIL, 170)
+        self.table.setColumnWidth(COL_FOLDER, 110)
+        self.table.setColumnWidth(COL_PROGRESS, 90)
+        self.table.setColumnWidth(COL_DETAIL, 130)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         layout.addWidget(self.table, 1)
         return container
@@ -680,7 +680,7 @@ class VideoPanel(QWidget):
         name_item.setData(Qt.UserRole, job.id)
         self.table.setItem(row, COL_NAME, name_item)
 
-        folder_item = QTableWidgetItem(str(job.destination))
+        folder_item = QTableWidgetItem(folder_label(job.destination))
         folder_item.setToolTip(str(job.destination))
         self.table.setItem(row, COL_FOLDER, folder_item)
 
@@ -746,7 +746,7 @@ class VideoPanel(QWidget):
         row = self._rows.get(job.id)
         item = self.table.item(row, COL_FOLDER) if row is not None else None
         if item is not None:
-            item.setText(str(job.destination))
+            item.setText(folder_label(job.destination))
             item.setToolTip(str(job.destination))
 
     def _settle_folders(self, jobs: List[Job]) -> None:
