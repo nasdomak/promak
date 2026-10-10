@@ -11,6 +11,7 @@
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
     python -m promak ocr      scans/ --make both --out text/
     python -m promak convert  report.docx --to md
+    python -m promak sheets   jan.xlsx feb.csv --name Year --drop-duplicates
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -32,7 +33,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets")
 
 
 # ------------------------------------------------------------ the engines
@@ -136,11 +137,25 @@ def _convert(args):
     return options, ConvertBatch
 
 
+def _sheets(args):
+    from promak.tools.sheetmerge.engine import MergeOptions, SheetMergeBatch
+
+    fmt = {"xlsx": "xlsx", "csv": "csv", "csv-semicolon": "csv;"}[args.format]
+    options = MergeOptions(every_sheet=args.every_sheet, source_column=not args.no_source,
+                           drop_duplicates=args.drop_duplicates, output_format=fmt, name=args.name,
+                           overwrite=args.overwrite)
+    return options, SheetMergeBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "sheets":
+        from promak.core.tables import TABLE_EXTENSIONS
+
+        return TABLE_EXTENSIONS
     if command == "convert":
         from promak.tools.docconvert.engine import SOURCES
 
@@ -161,7 +176,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
-    "pdf": _pdf, "ocr": _ocr, "convert": _convert,
+    "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets,
 }
 
 
@@ -258,6 +273,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--separator", choices=("comma", "semicolon", "tab"), default="comma", help="for CSV files written")
     p.add_argument("--first-sheet", action="store_true", help="Excel to CSV: only the first sheet")
     p.add_argument("--suffix", default="")
+
+    p = file_tool("sheets", "merge many CSV and Excel files into one table, columns matched by name")
+    p.add_argument("--format", choices=("xlsx", "csv", "csv-semicolon"), default="xlsx")
+    p.add_argument("--name", default="", help="file name of the merged table")
+    p.add_argument("--every-sheet", action="store_true", help="every sheet of a workbook, not only the first")
+    p.add_argument("--no-source", action="store_true", help='no "Source file" column')
+    p.add_argument("--drop-duplicates", action="store_true")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)

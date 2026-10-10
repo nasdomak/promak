@@ -66,6 +66,8 @@ class FileQueuePanel(QWidget):
     RUNNING_LABEL = "Working..."
     #: keys of :data:`promak.core.dependencies.TOOL_COMPONENTS` the tool needs
     COMPONENTS: Sequence[str] = ()
+    #: True for tools where the order of the queue matters (merging, GIFs...)
+    REORDERABLE = False
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -200,13 +202,16 @@ class FileQueuePanel(QWidget):
         label = QLabel("Queue")
         label.setObjectName("SectionLabel")
         layout.addWidget(label)
-        layout.addLayout(queue_buttons((
+        actions = [
             ("Change folder", self._change_folder_for_selection),
             ("Open folder", self._open_selected_folder),
             ("Retry failed", self._retry_failed),
             ("Remove selected", self._remove_selected),
             ("Clear finished", self._clear_finished),
-        )))
+        ]
+        if self.REORDERABLE:
+            actions += [("Move up", lambda: self.move_selected(-1)), ("Move down", lambda: self.move_selected(1))]
+        layout.addLayout(queue_buttons(actions, per_row=4 if self.REORDERABLE else 3))
 
         self._columns = ["File", *self.EXTRA_COLUMNS, "Destination", "Step", "Progress", "Details"]
         self.COL_NAME = 0
@@ -529,6 +534,19 @@ class FileQueuePanel(QWidget):
         self._jobs = [job for job in self._jobs if not job.stage.is_final]
         self._rebuild_table()
         self._update_buttons()
+
+    def move_selected(self, delta: int) -> None:
+        """Move the selected file up (-1) or down (+1) in the queue."""
+        jobs = self._selected_jobs()
+        if len(jobs) != 1 or (self._worker and self._worker.isRunning()):
+            return
+        index = self._jobs.index(jobs[0])
+        target = index + delta
+        if not 0 <= target < len(self._jobs):
+            return
+        self._jobs[index], self._jobs[target] = self._jobs[target], self._jobs[index]
+        self._rebuild_table()
+        self.table.selectRow(target)
 
     def _retry_failed(self) -> None:
         count = 0
