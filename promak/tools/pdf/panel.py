@@ -80,6 +80,7 @@ class PdfPanel(FileQueuePanel):
     EXTRA_COLUMNS = ("Pages", "Result")
     START_LABEL = "Do it"
     COMPONENTS = ("pikepdf", "pypdfium2")
+    REORDERABLE = True
 
     def build_options(self, box: QGroupBox) -> None:
         grid = QGridLayout(box)

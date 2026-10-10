@@ -28,6 +28,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Sort photos by date** | Moves or copies photos and videos into `2026/07 - July` folders by the date they were taken, with a preview and an undo |
 | **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
 | **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
+| **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -291,6 +292,20 @@ Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
   system) when one of them is installed - Promak asks it in the background.
   When neither is there the screen says so.
 
+## 11. Merge spreadsheets
+
+```
+January.xlsx   Name | Amount              Name | Amount | City | Source file
+February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
+                                         Sara | 5      | Rome | February.csv
+```
+
+* Columns are **matched by name**, not by place - upper/lower case and extra
+  spaces do not matter; a column only some files have stays empty for the others.
+* A **Source file** column (with the sheet name when a workbook gives several).
+* **Duplicate rows** can be dropped; the first sheet of each workbook, or every sheet.
+* Saved as an Excel workbook (header in bold, frozen) or as CSV with comma or semicolon.
+
 ---
 
 ## Installation (Windows)
@@ -386,6 +401,7 @@ promak.bat sortdate --undo
 promak.bat ocr    "D:\Scans" --make both --out "D:\Text"
 promak.bat convert "D:\Reports" --to md
 promak.bat convert prices.csv --to xlsx
+promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -463,7 +479,8 @@ promak/
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
-    └── docconvert/        # convert documents (engine.py, panel.py, tool.py)
+    ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)
+    └── sheetmerge/        # merge spreadsheets (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a
