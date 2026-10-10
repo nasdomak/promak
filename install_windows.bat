@@ -45,7 +45,7 @@ echo [2/4] Updating pip...
 if errorlevel 1 goto :failed
 
 echo [3/4] Installing Promak and its components...
-echo       ^(this downloads around 1 GB the first time, please wait^)
+echo       ^(this downloads around 1.5 GB the first time, please wait^)
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 goto :failed
 
