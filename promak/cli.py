@@ -21,6 +21,7 @@
     python -m promak zip      D:/Project --to D:/Project.7z --password ****
     python -m promak unzip    D:/Downloads/photos.zip --to D:/Photos
     python -m promak compare  D:/Photos E:/Backup --copy left-to-right --yes
+    python -m promak shred    "D:/Old scans" --yes
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -42,7 +43,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred")
 
 
 # ------------------------------------------------------------ the engines
@@ -427,6 +428,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--yes", action="store_true", help="really copy; without it only the plan is printed")
     p.add_argument("--undo", action="store_true", help="remove the files of the last copy")
 
+    p = sub.add_parser("shred", help="overwrite files with random data, then delete them (no undo)")
+    p.add_argument("items", nargs="+", type=Path)
+    p.add_argument("--passes", type=int, choices=(1, 3), default=1)
+    p.add_argument("--keep-folders", action="store_true", help="empty the folders but keep them")
+    p.add_argument("--yes", action="store_true", help="really destroy; without it only the list is printed")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -732,6 +739,27 @@ def run_compare(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def run_shred(args) -> int:
+    from promak.core.imaging import human_size
+    from promak.tools.shred import engine as e
+
+    options = e.ShredOptions(items=list(args.items), passes=args.passes, remove_folders=not args.keep_folders)
+    problem = options.validate()
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    files, _folders = e.collect(options.items)
+    for file in files:
+        print(f"   {file}")
+    print(f"[*] {e.describe(files)} would be destroyed, with no way back. {e.WARNING}")
+    if not args.yes:
+        print("[.] Nothing deleted. Add --yes to destroy them.")
+        return 0
+    result = e.shred(options, on_log=lambda level, text: print(f"[!] {text}", file=sys.stderr) if level == "error" else None)
+    print(f"[.] {result['done']} file(s), {human_size(result['bytes'])}, deleted for good.")
+    return 1 if result["failed"] else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -753,6 +781,8 @@ def main(argv: Sequence[str]) -> int:
         return run_zip(args)
     if args.command == "compare":
         return run_compare(args)
+    if args.command == "shred":
+        return run_shred(args)
     if args.command == "unzip":
         return run_unzip(args)
     return run_files(args)
