@@ -312,6 +312,8 @@ TOOL_COMPONENTS = {
     "imagehash": ("imagehash", "imagehash", "imagehash", "finding pictures that look alike"),
     "docx": ("python-docx", "python-docx", "docx", "reading and writing Word files"),
     "openpyxl": ("openpyxl", "openpyxl", "openpyxl", "reading and writing Excel files"),
+    "segno": ("segno", "segno", "segno", "making QR codes"),
+    "barcode": ("python-barcode", "python-barcode", "barcode", "making barcodes"),
     "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
     "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
 }

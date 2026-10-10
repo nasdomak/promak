@@ -13,6 +13,7 @@
     python -m promak convert  report.docx --to md
     python -m promak sheets   jan.xlsx feb.csv --name Year --drop-duplicates
     python -m promak clean    holiday/ --out to-share/
+    python -m promak qr       "https://example.org" --out codes/ --svg
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -34,7 +35,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr")
 
 
 # ------------------------------------------------------------ the engines
@@ -299,6 +300,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--drop-orientation", action="store_true", help='also remove "this side up"')
     p.add_argument("--drop-profile", action="store_true", help="also remove the colour profile")
 
+    p = sub.add_parser("qr", help="make QR codes or barcodes, one or a whole list, as PNG or SVG")
+    p.add_argument("content", nargs="*", help="what goes in the code")
+    p.add_argument("--kind", default="qr", choices=("qr", "code128", "code39", "ean13", "ean8", "upca", "isbn13", "itf"))
+    p.add_argument("--list", type=Path, help="a text file: one code per line")
+    p.add_argument("--csv", type=Path, help="a CSV file: one code per row")
+    p.add_argument("--column", type=int, default=1, help="CSV column with the content (from 1)")
+    p.add_argument("--name-column", type=int, default=0, help="CSV column with the file names (0 = none)")
+    p.add_argument("--wifi", metavar="NETWORK", help="a Wi-Fi network's name (QR only)")
+    p.add_argument("--password", default="", help="the Wi-Fi password")
+    p.add_argument("--size", type=int, default=600, help="width of a PNG in pixels")
+    p.add_argument("--error", choices=("l", "m", "q", "h"), default="m")
+    p.add_argument("--colour", default="#000000")
+    p.add_argument("--background", default="#FFFFFF")
+    p.add_argument("--transparent", action="store_true")
+    p.add_argument("--svg", action="store_true", help="SVG instead of PNG (with --png: both)")
+    p.add_argument("--png", action="store_true")
+    p.add_argument("--out", type=Path, help="destination folder (default: here)")
+    p.add_argument("--overwrite", action="store_true")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -493,6 +513,38 @@ def run_sortdate(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def run_qr(args) -> int:
+    from promak.tools.qrcodes import engine as e
+
+    source = e.SOURCE_ONE
+    text = " ".join(args.content)
+    if args.list:
+        source, text = e.SOURCE_LIST, Path(args.list).read_text(encoding="utf-8-sig")
+    elif args.csv:
+        source = e.SOURCE_CSV
+    elif args.wifi:
+        source = e.SOURCE_WIFI
+    options = e.CodeOptions(kind=args.kind, source=source, text=text, csv_path=args.csv,
+                            csv_column=args.column - 1, name_column=args.name_column - 1,
+                            wifi_name=args.wifi or "", wifi_password=args.password,
+                            size=args.size, error=args.error, dark=args.colour,
+                            light="transparent" if args.transparent else args.background,
+                            output_format="both" if args.svg and args.png else ("svg" if args.svg else "png"),
+                            folder=args.out or Path.cwd(), overwrite=args.overwrite)
+    problem = options.validate()
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    codes = e.collect_codes(options)
+    result = e.save_codes(codes, options)
+    for code in codes:
+        if code.problem:
+            print(f"[!] {code.name}: {code.problem}", file=sys.stderr)
+        else:
+            print(f"[.] {', '.join(str(p) for p in code.files)}")
+    return 1 if result["failed"] else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -508,6 +560,8 @@ def main(argv: Sequence[str]) -> int:
         return run_duplicates(args)
     if args.command == "sortdate":
         return run_sortdate(args)
+    if args.command == "qr":
+        return run_qr(args)
     return run_files(args)
 
 
