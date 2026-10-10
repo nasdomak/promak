@@ -191,3 +191,57 @@ def test_built_in_tool_list_matches_the_tool_folders():
     folders = {p.name for p in Path(promak.tools.__file__).parent.iterdir()
                if (p / "tool.py").exists()}
     assert set(BUILT_IN_TOOLS) == folders
+
+
+# ----------------------------------------------------------------- logging
+def test_log_keeps_writing_when_it_cannot_rotate(tmp_path: Path, capsys):
+    """Another Promak holding promak.log must not flood stderr or slow us down."""
+    import logging
+
+    from promak.core.logging_setup import _SafeRotatingFileHandler
+
+    log = tmp_path / "promak.log"
+    handler = _SafeRotatingFileHandler(log, maxBytes=200, backupCount=3, encoding="utf-8")
+    calls = []
+
+    def locked(source, dest):
+        calls.append(source)
+        raise PermissionError(32, "The process cannot access the file", source)
+
+    handler.rotate = locked
+    logger = logging.getLogger("promak.test.rotation")
+    logger.propagate = False
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    try:
+        for i in range(200):
+            logger.debug("line %d with some padding to pass the size limit quickly", i)
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+    assert len(calls) == 1                      # tried once, then gave up
+    assert handler.maxBytes == 0
+    assert "Logging error" not in capsys.readouterr().err
+    text = log.read_text(encoding="utf-8")
+    assert "line 0 " in text and "line 199 " in text
+
+
+def test_numba_compiler_chatter_stays_out_of_the_log(tmp_path: Path, monkeypatch):
+    import logging
+
+    from promak.core import logging_setup
+
+    monkeypatch.setattr(logging_setup, "_configured", False)
+    monkeypatch.setattr(logging_setup, "log_dir", lambda: tmp_path)
+    root = logging.getLogger()
+    before, level = list(root.handlers), root.level
+    try:
+        logging_setup.setup_logging()
+        assert logging.getLogger("numba").getEffectiveLevel() == logging.WARNING
+        assert logging.getLogger("numba.core.byteflow").isEnabledFor(logging.DEBUG) is False
+    finally:
+        for h in root.handlers[:]:
+            if h not in before:
+                root.removeHandler(h)
+                h.close()
+        root.setLevel(level)
