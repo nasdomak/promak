@@ -15,12 +15,14 @@ folder and hands that out.
 from __future__ import annotations
 
 import functools
+import importlib
 import importlib.util
 import logging
 import os
 import shutil
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -231,6 +233,29 @@ def module_available(name: str) -> bool:
         return importlib.util.find_spec(name) is not None
     except (ImportError, ValueError):
         return False
+
+
+_import_lock = threading.Lock()
+
+
+def import_in_program_folder(name: str):
+    """Import ``name``; in the built program, from the program's own folder.
+
+    numba (behind rembg's pymatting) files its compiled code under the
+    source path of each function.  In the built program those paths are
+    relative, so they were read against whatever folder Promak was started
+    from: every starting folder got its own empty cache and minutes of
+    compiling.  Importing from one fixed folder gives one cache, reused.
+    """
+    if not getattr(sys, "frozen", False) or name in sys.modules:
+        return importlib.import_module(name)
+    with _import_lock:
+        here = os.getcwd()
+        os.chdir(getattr(sys, "_MEIPASS", os.path.dirname(sys.executable)))
+        try:
+            return importlib.import_module(name)
+        finally:
+            os.chdir(here)
 
 
 def module_version(name: str) -> Optional[str]:

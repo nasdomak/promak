@@ -14,12 +14,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from promak.core.batch import BatchEngine
+from promak.core.dependencies import import_in_program_folder
 from promak.core.filejobs import FileJob
 from promak.core.imaging import RASTER_EXTENSIONS, ImageToolError, flatten, human_size
 from promak.core.paths import models_dir
@@ -90,7 +92,7 @@ def require_session(model: str):
             return _sessions[model]
         os.environ["U2NET_HOME"] = str(model_home())
         try:
-            from rembg import new_session
+            new_session = import_in_program_folder("rembg").new_session
         except Exception as exc:
             raise _start_error(exc) from exc
         try:
@@ -120,7 +122,7 @@ def _start_error(exc: BaseException) -> BackgroundError:
 def remove_background(image, options: BackgroundOptions, session=None):
     """The picture with its background transparent (RGBA)."""
     try:
-        from rembg import remove
+        remove = import_in_program_folder("rembg").remove
     except Exception as exc:
         raise _start_error(exc) from exc
 
@@ -147,6 +149,9 @@ class BackgroundBatch(BatchEngine):
     def process_one(self, job: FileJob, report) -> None:
         from PIL import Image, ImageOps
 
+        if "rembg" not in sys.modules and getattr(sys, "frozen", False):
+            report(3, "preparing the engine - the first time after installing or updating Promak "
+                      "this takes a few minutes")
         if not model_ready(self.options.model):
             report(5, f"downloading the model once (about {model_size(self.options.model)} MB)")
             self._log("info", f"First use: downloading the model ({model_size(self.options.model)} MB) "

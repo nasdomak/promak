@@ -253,3 +253,39 @@ def test_self_test_really_imports_the_engines():
     results = import_check(("json", "promak_no_such_engine"))
     assert results["json"].startswith("ok (")
     assert results["promak_no_such_engine"].startswith("ModuleNotFoundError")
+
+
+def test_the_built_program_imports_engines_from_its_own_folder(tmp_path: Path, monkeypatch):
+    """numba's compile cache follows the folder of the import: keep it fixed."""
+    import os
+    import sys
+
+    from promak.core.dependencies import import_in_program_folder
+
+    package = tmp_path / "lib" / "promak_fake_engine"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("import os\nIMPORTED_FROM = os.getcwd()\n", encoding="utf-8")
+    bundle, elsewhere = tmp_path / "bundle", tmp_path / "elsewhere"
+    bundle.mkdir()
+    elsewhere.mkdir()
+    monkeypatch.syspath_prepend(str(tmp_path / "lib"))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.delitem(sys.modules, "promak_fake_engine", raising=False)
+    try:
+        module = import_in_program_folder("promak_fake_engine")
+        assert os.path.samefile(module.IMPORTED_FROM, bundle)
+        assert os.path.samefile(os.getcwd(), elsewhere)      # put back afterwards
+    finally:
+        sys.modules.pop("promak_fake_engine", None)
+
+
+def test_outside_the_built_program_imports_are_plain(tmp_path: Path, monkeypatch):
+    import os
+
+    from promak.core.dependencies import import_in_program_folder
+
+    monkeypatch.chdir(tmp_path)
+    assert import_in_program_folder("json").dumps([1]) == "[1]"
+    assert os.path.samefile(os.getcwd(), tmp_path)

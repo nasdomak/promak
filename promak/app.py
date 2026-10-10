@@ -171,14 +171,15 @@ HEAVY_IMPORTS = ("onnxruntime", "ctranslate2", "faster_whisper", "rapidocr", "re
 
 def import_check(names=HEAVY_IMPORTS) -> dict:
     """``{module: "ok (1.2 s)" or "ErrorType: message"}`` after really importing each."""
-    import importlib
     import time
+
+    from promak.core.dependencies import import_in_program_folder
 
     results = {}
     for name in names:
         started = time.monotonic()
         try:
-            importlib.import_module(name)
+            import_in_program_folder(name)
         except Exception as exc:  # what matters is that it is reported
             log.warning("Self-test: %s does not import", name, exc_info=True)
             results[name] = f"{type(exc).__name__}: {exc}"
