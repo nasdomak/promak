@@ -11,13 +11,17 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Three tools so far, all in one window:
+Five tools so far, all in one window:
 
 | Tool | What it does |
 |------|--------------|
 | **Video downloader** | Paste links from almost any site: Promak downloads the video, extracts the MP3 and writes a full transcript |
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
+| **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
+| **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
+
+While a tool works, the bar at the bottom shows how long it should still take.
 
 Light interface by default; the small sun/moon next to the name switches to dark,
 and the choice is remembered.
@@ -104,6 +108,36 @@ without ever going blurry.
   light as it gets is left exactly as it was.
 * Before / After / Saving columns, and a running total of the weight saved.
 
+## 4. Resize and convert
+
+* **Size**: longest side, exact width, exact height or a percentage, with
+  ready-made sizes (e-mail, Full HD, social media, thumbnail). Proportions are
+  always kept, and small pictures are never blown up unless you ask.
+* **Format**: keep it, or convert to JPG, PNG or WEBP, with a quality slider.
+* **Watermark**: a line of text in a corner, in the middle or repeated across
+  the picture, as visible and as big as you like.
+* Photos taken sideways come out upright; colour profiles are kept.
+* Your originals are never changed; an optional ending (`-web`) is added to
+  the new names.
+
+## 5. Number folders
+
+```
+Holiday     ->  01 - Holiday
+Birthday    ->  02 - Birthday
+Work trip   ->  03 - Work trip
+```
+
+* Order **by name** (2 before 10), **by date** changed or created, or **by hand**
+  with the Move up / Move down buttons.
+* Number before or after the old name, number only, or your own text plus the
+  number; first number, step and digits (01, 001...) are up to you.
+* An old number at the start of the name is replaced, not doubled.
+* **Every new name is shown before anything is renamed**; clashes are flagged
+  and block the run.
+* Names can be swapped safely (01 and 02 trade places), and **Undo last
+  renaming** puts the old names back.
+
 ---
 
 ## Installation (Windows)
@@ -113,7 +147,8 @@ without ever going blurry.
 2. Download this repository (green **Code** button → **Download ZIP**) and unzip it.
 3. Double-click **`install_windows.bat`** and wait. It creates a private
    environment inside the folder and installs everything, FFmpeg included.
-4. Double-click **`run_promak.bat`** to start the program.
+4. Double-click **`run_promak.bat`**, or the **Promak** shortcut the installer
+   puts on the desktop, to start the program.
 
 ### Installation (any platform, from a terminal)
 
@@ -195,6 +230,7 @@ promak/
 │   ├── tool_registry.py   # discovers the tools listed in the sidebar
 │   ├── batch.py           # the queue every file tool runs on
 │   ├── filejobs.py        # one file travelling through a tool
+│   ├── eta.py             # the "time left" estimate of the progress bars
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
 │   ├── theme.py           # the light and dark palettes
@@ -212,7 +248,9 @@ promak/
     │   ├── audio.py       # FFmpeg
     │   └── transcriber.py # faster-whisper
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
-    └── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
+    ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
+    ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
+    └── renamer/           # tool 5  (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a
@@ -240,7 +278,9 @@ pytest -q
 - [x] Picture to vector (SVG)
 - [x] Picture shrinker
 - [x] Light and dark interface
-- [ ] Batch image tools: resize, convert, watermark
+- [x] Batch image tools: resize, convert, watermark
+- [x] Sequential folder renamer
+- [x] Estimated time left while working
 - [ ] Video toolbox: trim, convert, compress, extract frames
 - [ ] Text toolbox: summaries, clean-up, format conversion
 - [ ] Audio toolbox: normalise, split, convert

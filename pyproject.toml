@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "promak"
-version = "0.2.1"
-description = "Free and open-source productivity toolbox: video downloader with transcription, picture-to-vector (SVG) and picture shrinker."
+version = "0.3.0"
+description = "Free and open-source productivity toolbox: video downloader with transcription, picture-to-vector (SVG), picture shrinker, batch resize/convert/watermark and folder numbering."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "nasdomak" }]
 keywords = ["video", "downloader", "mp3", "transcription", "whisper", "svg", "vector",
-            "image", "compression", "productivity", "gui"]
+            "image", "compression", "resize", "watermark", "rename", "productivity", "gui"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: X11 Applications :: Qt",
