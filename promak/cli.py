@@ -9,6 +9,7 @@
     python -m promak rename   D:/Photos/2026 --code "{n:3} - {name}" --yes
     python -m promak rename   D:/Phone --files --code "{taken} {n:3}" --yes
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
+    python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
 
 A folder given as input means every file in it the tool can open.  Without
 ``--out`` the new files go next to the originals (which are never changed).
@@ -28,7 +29,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates")
 
 
 # ------------------------------------------------------------ the engines
@@ -218,6 +219,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--password", default="", help="to open a protected PDF, or the new password")
     p.add_argument("--name", default="", help="file name of the merged PDF")
 
+    p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
+    p.add_argument("folders", nargs="+", type=Path)
+    p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
+    p.add_argument("--keep", choices=("largest", "oldest", "newest", "shortest"), default="largest")
+    p.add_argument("--min-kb", type=int, default=1, help="ignore smaller files")
+    p.add_argument("--no-subfolders", action="store_true")
+    p.add_argument("--move-to", type=Path, help="move the extra copies here instead of the Recycle Bin")
+    p.add_argument("--yes", action="store_true", help="act; without it only the groups are printed")
+
     p = sub.add_parser("rename", help="give the folders (or with --files the files) inside a folder new names")
     p.add_argument("folder", type=Path, nargs="?", default=Path("."))
     p.add_argument("--code", default="{n} - {name}", help='naming code, e.g. "PRJ-{year}-{n:3} {name}"')
@@ -330,6 +340,34 @@ def run_rename(args) -> int:
     return 0
 
 
+def run_duplicates(args) -> int:
+    from promak.core.imaging import human_size
+    from promak.tools.duplicates import engine as e
+
+    options = e.DuplicateOptions(folders=list(args.folders), recursive=not args.no_subfolders,
+                                 mode=e.SIMILAR if args.similar else e.EXACT, similarity=args.similar or 90,
+                                 min_kb=args.min_kb, keep=args.keep,
+                                 action=e.TO_FOLDER if args.move_to else e.TO_BIN, move_to=args.move_to)
+    problem = options.validate() or (options.validate_action() if args.yes else None)
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    groups = e.find_duplicates(options)
+    for number, group in enumerate(groups, start=1):
+        print(f"Group {number}:")
+        for entry in group.entries:
+            print(f"   {'goes' if entry.remove else 'KEEP'}  {entry.path}  ({human_size(entry.size)})")
+    print(f"[.] {e.summary_text(groups)}")
+    if not args.yes or not groups:
+        if groups:
+            print("[.] Preview only. Add --yes to remove the files marked 'goes'.")
+        return 0
+    result = e.remove_duplicates(groups, options, on_log=lambda level, text: print(f"[!] {text}", file=sys.stderr))
+    where = f"moved to {args.move_to}" if args.move_to else "put in the Recycle Bin"
+    print(f"[.] {result['done']} file(s) {where}, {human_size(result['bytes'])} freed.")
+    return 1 if result["failed"] else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -341,6 +379,8 @@ def main(argv: Sequence[str]) -> int:
     args = build_parser().parse_args(list(argv))
     if args.command == "rename":
         return run_rename(args)
+    if args.command == "duplicates":
+        return run_duplicates(args)
     return run_files(args)
 
 

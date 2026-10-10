@@ -15,3 +15,5 @@ vtracer>=0.6            # turns a picture into real vector shapes (SVG)
 # --- Promak 0.5 tools -------------------------------------------------------
 pikepdf>=8.0            # PDF pages: merge, split, rotate, passwords (MPL-2.0)
 pypdfium2>=4.20         # PDF pages drawn as pictures (Apache-2.0 / BSD-3)
+send2trash>=1.8         # files go to the Recycle Bin, never deleted outright (BSD-3)
+imagehash>=4.3          # perceptual fingerprints of pictures, for similar photos (BSD-2)

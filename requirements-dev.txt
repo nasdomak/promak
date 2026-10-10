@@ -9,4 +9,6 @@ imageio-ffmpeg>=0.4.9
 yt-dlp>=2024.1.1
 pikepdf>=8.0
 pypdfium2>=4.20
+send2trash>=1.8
+imagehash>=4.3
 pytest>=7.0

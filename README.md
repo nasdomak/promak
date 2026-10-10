@@ -24,6 +24,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
 | **Rename files** | Renames many files with a code - number, old name, date a photo was taken, size - with a preview and an undo |
+| **Find duplicates** | Finds exact copies and similar pictures, keeps the best of each group, sends the others to the Recycle Bin or a folder |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -204,6 +205,20 @@ IMG_2032.JPG  ->  Holiday 2026-07-13 002.jpg
 * Same safety as the folders: clashes are shown and block the run, names can be
   swapped, and **Undo last renaming** puts the old names back.
 
+## 7c. Find duplicates
+
+* **Exact copies** of any kind of file: grouped by size, then by a fingerprint
+  of their content, so each file is read at most once.
+* **Similar pictures**: the same photo resized for e-mail, saved again, slightly
+  changed - found by a perceptual fingerprint, with a *similarity* slider.
+* Several folders at once, with or without their sub-folders; tiny files can be left out.
+* **One file of every group is kept** - the largest (best quality), the oldest
+  (the original), the newest or the one with the shortest path - and you can
+  tick or untick any file by hand. A group where nothing would be left is refused.
+* The pictures of the selected group are shown **side by side**, marked KEEP or GOES.
+* The others go **to the Recycle Bin**, or are **moved to a folder** of your
+  choice keeping their sub-folders - and that move can be undone.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -311,6 +326,8 @@ promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}"          (preview)
 promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}" --yes    (rename)
 promak.bat rename --undo
 promak.bat rename "D:\Phone" --files --code "{taken} {n:3}" --lower-ext --yes
+promak.bat duplicates "D:\Photos" "E:\Backup" --similar 92               (preview)
+promak.bat duplicates "D:\Photos" --move-to "D:\Doubles" --yes
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -356,6 +373,7 @@ promak/
 │   ├── batch.py           # the queue every file tool runs on
 │   ├── filejobs.py        # one file travelling through a tool
 │   ├── media.py           # FFmpeg runner shared by the sound and video tools
+│   ├── fileops.py         # safe move / copy / Recycle Bin, with an undo journal
 │   ├── eta.py             # the "time left" estimate of the progress bars
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
@@ -363,6 +381,7 @@ promak/
 │   ├── theme_icons.py     # the sun and moon of the light/dark switch
 │   ├── columns.py         # the three side-by-side columns of every tool
 │   ├── file_panel.py      # the screen every file tool inherits
+│   ├── plan_panel.py      # the screen of the "look first, then act" tools
 │   └── preview.py         # the before/after preview
 └── tools/
     ├── video/             # tool 1
@@ -381,6 +400,7 @@ promak/
     ├── text/              # text toolbox (engine.py, panel.py, tool.py)
     ├── renamer/           # number folders (engine.py, panel.py, tool.py)
     ├── filerename/        # rename files - the renamer's engine on files
+    ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
     └── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
 ```
 
