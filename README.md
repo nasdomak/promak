@@ -15,6 +15,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 
 | Tool | What it does |
 |------|--------------|
+| **Recipes** | Saves a chain of steps from the other tools - resize, watermark, make lighter... - and runs it with one click |
 | **Video downloader** | Paste links from almost any site: Promak downloads the video, extracts the MP3 and writes a full transcript |
 | **Video toolbox** | Converts any video to an MP4 that plays everywhere, makes it lighter or fits it under a size, trims it, takes pictures out of it |
 | **Burn subtitles** | Draws SRT or VTT subtitles - such as the downloader's transcripts - into the picture of a video |
@@ -444,6 +445,28 @@ February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
 * **Duplicate rows** can be dropped; the first sheet of each workbook, or every sheet.
 * Saved as an Excel workbook (header in bold, frozen) or as CSV with comma or semicolon.
 
+## 12. Recipes
+
+```
+Web photos:   1. Resize to 1600 px   2. Watermark "© My shop"   3. Make lighter (quality 78)
+```
+
+* A recipe is a **chain of steps** from the other file tools: pictures (resize,
+  convert, watermark, make lighter, remove background, hidden data, vector),
+  video and sound (video toolbox, subtitles, silences, audio), documents (PDF,
+  OCR, convert, text).
+* A step is added by choosing a tool: **the settings it has on its own screen
+  right now** are taken as they are - set the tool up, come back, *Add this step*.
+* Each step gets the result of the one before; only the last result is saved,
+  with the ending you choose (`-web`). The originals are never changed.
+* Recipes are saved and run from the screen, from the command line, or from
+  the Windows Task Scheduler:
+
+  ```bat
+  promak.bat recipe --list
+  promak.bat recipe "Web photos" "D:\Holiday" --out "D:\Web"
+  ```
+
 ---
 
 ## Installation (Windows)
@@ -640,6 +663,7 @@ promak/
     ├── archives/          # ZIP, 7z and TAR (engine.py, panel.py, tool.py)
     ├── compare/           # compare two folders (engine.py, panel.py, tool.py)
     ├── shred/             # secure delete (engine.py, panel.py, tool.py)
+    ├── recipes/           # chains of steps (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)
