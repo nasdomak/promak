@@ -17,6 +17,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 |------|--------------|
 | **Video downloader** | Paste links from almost any site: Promak downloads the video, extracts the MP3 and writes a full transcript |
 | **Video toolbox** | Converts any video to an MP4 that plays everywhere, makes it lighter or fits it under a size, trims it, takes pictures out of it |
+| **Burn subtitles** | Draws SRT or VTT subtitles - such as the downloader's transcripts - into the picture of a video |
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
@@ -98,6 +99,17 @@ and the choice is remembered.
 * **Keep only a part** (from `1:30` to `4:00`) works with every job.
 * **Remove the sound** with one tick.
 * Smaller videos are never enlarged; your originals are never changed.
+
+## 2a. Burn subtitles into a video
+
+* SRT, VTT or ASS subtitles are **drawn into the picture**, so they show on
+  every player, phone and site - nothing to switch on.
+* Each video finds **its own subtitles**: the file with the same name next to it
+  (`Lesson.srt`, `Lesson.en.vtt`) or in a sister folder - exactly where the video
+  downloader puts its transcripts. Or choose one file for all.
+* Text size, place (bottom, top, middle), colours, outline or a dark box behind
+  the text; old subtitle files in the Windows encoding are read correctly.
+* The result is an H.264 MP4 that plays everywhere.
 
 ## 2b. Picture to vector (SVG)
 
@@ -447,6 +459,7 @@ promak.bat convert "D:\Reports" --to md
 promak.bat convert prices.csv --to xlsx
 promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat clean  "D:\To share" --out "D:\Clean"
+promak.bat subtitles "D:\Lessons" --size large --box --out "D:\Subtitled"
 promak.bat gif    "D:\Frames" --frame-ms 400 --name "Demo"
 promak.bat collage "D:\Holiday" --columns 3 --spacing 20 --fill
 promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
@@ -517,6 +530,7 @@ promak/
     │   ├── audio.py       # FFmpeg
     │   └── transcriber.py # faster-whisper
     ├── videotools/        # video toolbox (engine.py, panel.py, tool.py)
+    ├── subtitles/         # burn subtitles (engine.py, panel.py, tool.py)
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)

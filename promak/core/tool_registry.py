@@ -22,6 +22,7 @@ BUILT_IN_TOOLS = (
     "video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer",
     "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert",
     "sheetmerge", "cleanmeta", "qrcodes", "gifcollage",
+    "subtitles",
 )
 
 

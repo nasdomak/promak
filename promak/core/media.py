@@ -109,12 +109,15 @@ def run_ffmpeg(
     cancel_event: Optional[threading.Event] = None,
     cleanup: Sequence[Path] = (),
     span: tuple = (0.0, 100.0),
+    cwd: Optional[Path] = None,
 ) -> None:
     """Run FFmpeg with ``arguments`` (input and output included).
 
     ``span`` maps FFmpeg's 0-100 % onto part of the job's bar, for tools
     that run FFmpeg twice.  Files in ``cleanup`` are deleted when the run
-    fails or is cancelled, so no half-written file is left behind.
+    fails or is cancelled, so no half-written file is left behind.  ``cwd``
+    is the folder FFmpeg runs in: filters that take file names (subtitles)
+    are given short names inside it, so no path has to be escaped.
     """
     exe = require_ffmpeg()
     command: List[str] = [exe, "-hide_banner", "-loglevel", "error", "-y", "-nostdin",
@@ -122,7 +125,7 @@ def run_ffmpeg(
     log.debug("FFmpeg: %s", " ".join(command))
     low, high = span
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                               errors="replace", bufsize=1, **SUBPROCESS_QUIET)
+                               errors="replace", bufsize=1, cwd=str(cwd) if cwd else None, **SUBPROCESS_QUIET)
     errors: List[str] = []
     reader = threading.Thread(target=lambda: errors.extend(process.stderr or []), daemon=True)
     reader.start()

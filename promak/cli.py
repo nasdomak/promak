@@ -16,6 +16,7 @@
     python -m promak qr       "https://example.org" --out codes/ --svg
     python -m promak gif      frames/ --frame-ms 400 --name Demo
     python -m promak collage  holiday/ --columns 3 --spacing 20
+    python -m promak subtitles lessons/ --size large --out subtitled/
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -37,7 +38,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles")
 
 
 # ------------------------------------------------------------ the engines
@@ -177,6 +178,17 @@ def _collage(args):
     return options, e.GifCollageBatch
 
 
+def _subtitles(args):
+    from promak.tools.subtitles import engine as e
+
+    options = e.SubtitleOptions(subtitle_file=args.subtitles,
+                                font_size={"small": 16, "medium": 20, "large": 26, "huge": 34}[args.size],
+                                position={"bottom": 2, "top": 8, "middle": 5}[args.place], outline=args.outline,
+                                box=args.box, colour=args.colour, outline_colour=args.edge, crf=args.crf,
+                                suffix=args.suffix, overwrite=args.overwrite)
+    return options, e.SubtitleBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
@@ -206,13 +218,14 @@ def _extensions(command: str, args=None) -> Sequence[str]:
         "shrink": RASTER_EXTENSIONS, "resize": RASTER_EXTENSIONS, "vector": RASTER_EXTENSIONS,
         "gif": RASTER_EXTENSIONS, "collage": RASTER_EXTENSIONS,
         "audio": AUDIO_EXTENSIONS + VIDEO_EXTENSIONS, "video": VIDEO_EXTENSIONS, "text": TEXT_EXTENSIONS,
+        "subtitles": VIDEO_EXTENSIONS,
     }[command]
 
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
     "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
-    "gif": _gif, "collage": _collage,
+    "gif": _gif, "collage": _collage, "subtitles": _subtitles,
 }
 
 
@@ -357,6 +370,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fill", action="store_true", help="fill the cells (edges trimmed)")
     p.add_argument("--png", action="store_true", help="PNG instead of JPG")
     p.add_argument("--name", default="")
+
+    p = file_tool("subtitles", "burn SRT or VTT subtitles into videos")
+    p.add_argument("--subtitles", type=Path, help="one subtitle file for every video (default: the one next to each)")
+    p.add_argument("--size", choices=("small", "medium", "large", "huge"), default="medium")
+    p.add_argument("--place", choices=("bottom", "top", "middle"), default="bottom")
+    p.add_argument("--outline", type=int, default=2)
+    p.add_argument("--box", action="store_true", help="a dark box behind the text")
+    p.add_argument("--colour", default="#FFFFFF")
+    p.add_argument("--edge", default="#000000")
+    p.add_argument("--crf", type=int, default=21)
+    p.add_argument("--suffix", default=" - subtitled")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
