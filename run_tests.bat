@@ -25,7 +25,7 @@ echo ===================================================================
 echo  1/3  Checking the components the tests need
 echo ===================================================================
 "%PY%" -m pip install --upgrade pip --quiet
-"%PY%" -m pip install --upgrade pytest "Pillow>=10.0" "vtracer>=0.6" --quiet
+"%PY%" -m pip install --upgrade -r requirements-dev.txt --quiet
 if errorlevel 1 (
     echo.
     echo Something could not be installed. The tests will still run, and
