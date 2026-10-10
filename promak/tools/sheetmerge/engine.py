@@ -22,10 +22,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from promak.core.batch import BatchEngine
-from promak.core.filejobs import FileJob, FileStage
-from promak.core.imaging import ImageToolError, human_size
-from promak.core.paths import safe_filename, unique_path
+from promak.core.batch import CombineEngine
+from promak.core.filejobs import FileJob
+from promak.core.imaging import human_size
 from promak.core.tables import TABLE_EXTENSIONS, cell_text, read_table, write_csv, write_xlsx
 
 log = logging.getLogger(__name__)
@@ -109,7 +108,7 @@ def merge_tables(tables: List[Tuple[str, List[List[Any]]]], options: MergeOption
     return Merged(header, out, dropped)
 
 
-class SheetMergeBatch(BatchEngine):
+class SheetMergeBatch(CombineEngine):
     """Reads every file of the queue, then writes one merged table."""
 
     what = "file(s)"
@@ -118,73 +117,27 @@ class SheetMergeBatch(BatchEngine):
         super().__init__(**kwargs)
         self.options = options
 
-    def run(self, jobs: List[FileJob]) -> Dict[str, int]:
-        summary = {"done": 0, "failed": 0, "cancelled": 0, "skipped": 0}
-        pending = [job for job in jobs if not job.stage.is_final]
-        self._log("info", f"Merging {len(pending)} file(s).")
-        tables: List[Tuple[str, List[List[Any]]]] = []
-        read: List[FileJob] = []
-        for index, job in enumerate(pending, start=1):
-            if self.cancel_event.is_set():
-                job.stage, job.message = FileStage.CANCELLED, "Cancelled"
-                summary["cancelled"] += 1
-                self.on_update(job)
-                continue
-            job.stage, job.progress, job.message, job.error = FileStage.WORKING, 40.0, "reading", ""
-            self.on_update(job)
-            try:
-                self.prepare(job)
-                sheets = read_table(job.source)
-                chosen = list(sheets.items()) if self.options.every_sheet else list(sheets.items())[:1]
-                count = 0
-                for sheet, rows in chosen:
-                    label = job.source.name if len(chosen) == 1 else f"{job.source.name} - {sheet}"
-                    tables.append((label, rows))
-                    count += max(0, len(rows) - 1)
-                job.info["rows"] = str(count)
-                read.append(job)
-                self._log("info", f"[{index}/{len(pending)}] {job.display_name}: {count} row(s)")
-            except ImageToolError as exc:
-                job.stage, job.error = FileStage.FAILED, str(exc)
-                summary["failed"] += 1
-                self._log("error", f"Failed: {job.display_name} - {exc}")
-            except Exception as exc:  # never lose the other files for one
-                job.stage, job.error = FileStage.FAILED, f"Unexpected problem: {exc}"
-                summary["failed"] += 1
-                self._log("error", f"Failed: {job.display_name} - {exc}")
-            self.on_update(job)
-        if not read:
-            return summary
-        merged = merge_tables(tables, self.options)
-        target = self._target(read[0])
-        try:
-            if self.options.output_format == "xlsx":
-                write_xlsx(target, {"Merged": [merged.columns, *merged.rows]})
-            else:
-                delimiter = ";" if self.options.output_format == "csv;" else ","
-                write_csv(target, [merged.columns, *merged.rows], delimiter=delimiter)
-        except (OSError, ImageToolError) as exc:
-            for job in read:
-                job.stage, job.error = FileStage.FAILED, f"The merged file could not be written: {exc}"
-                summary["failed"] += 1
-                self.on_update(job)
-            self._log("error", f"The merged file could not be written: {exc}")
-            return summary
-        size = target.stat().st_size
-        for job in read:
-            job.stage, job.progress, job.output, job.output_bytes = FileStage.DONE, 100.0, target, size
-            job.message = f"in {target.name}"
-            summary["done"] += 1
-            self.on_update(job)
-        note = f", {merged.dropped} duplicate row(s) dropped" if merged.dropped else ""
-        self._log("info", f"{len(merged.rows)} row(s) and {len(merged.columns)} column(s) written to "
-                          f"{target} ({human_size(size)}){note}.")
-        return summary
+    def read_one(self, job: FileJob):
+        sheets = read_table(job.source)
+        chosen = list(sheets.items()) if self.options.every_sheet else list(sheets.items())[:1]
+        tables = []
+        for sheet, rows in chosen:
+            label = job.source.name if len(chosen) == 1 else f"{job.source.name} - {sheet}"
+            tables.append((label, rows))
+        job.info["rows"] = str(sum(max(0, len(rows) - 1) for _label, rows in tables))
+        return tables
 
-    def _target(self, first: FileJob) -> Path:
+    def write_all(self, read) -> Path:
+        tables = [table for _job, part in read for table in part]
+        merged = merge_tables(tables, self.options)
         extension = ".xlsx" if self.options.output_format == "xlsx" else ".csv"
-        name = safe_filename(self.options.name.strip() or f"{first.source.stem} - merged", fallback="merged")
-        target = first.destination / f"{name}{extension}"
-        if target.exists() and not self.options.overwrite:
-            target = unique_path(target)
+        target = self.result_path(read[0][0], self.options.name, "merged", extension, self.options.overwrite)
+        if self.options.output_format == "xlsx":
+            write_xlsx(target, {"Merged": [merged.columns, *merged.rows]})
+        else:
+            delimiter = ";" if self.options.output_format == "csv;" else ","
+            write_csv(target, [merged.columns, *merged.rows], delimiter=delimiter)
+        note = f", {merged.dropped} duplicate row(s) dropped" if merged.dropped else ""
+        self._log("info", f"{len(merged.rows)} row(s) and {len(merged.columns)} column(s) "
+                          f"({human_size(target.stat().st_size)}){note}.")
         return target
