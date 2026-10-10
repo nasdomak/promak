@@ -11,7 +11,7 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Seven tools so far, all in one window:
+Eight tools so far, all in one window:
 
 | Tool | What it does |
 |------|--------------|
@@ -21,6 +21,7 @@ Seven tools so far, all in one window:
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
+| **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -146,7 +147,20 @@ without ever going blurry.
   (`Lesson - part 001.mp3`, `part 002`...).
 * **Mono** for speech, at half the size.
 
-## 6. Number folders
+## 6. Text toolbox
+
+* **Clean-up**: double spaces, rows of blank lines, invisible characters, lines
+  broken in the middle of a sentence (text copied from PDFs), words cut by a
+  hyphen; optionally straight quotes and no repeated lines.
+* **Subtitles and transcripts** (SRT, VTT) become readable paragraphs - handy
+  with the transcripts of the video downloader.
+* **Summary** of 5 or 10 sentences, or a fifth / a third of the text, made of
+  the text's own key sentences in their original order. No AI service and no
+  internet: nothing leaves your computer.
+* **Formats**: plain text, Markdown, or a simple web page.
+* Word count and reading time for every file, and the result shown on screen.
+
+## 7. Number folders
 
 ```
 Holiday     ->  01 - Holiday
@@ -285,6 +299,7 @@ promak/
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
+    ├── text/              # text toolbox (engine.py, panel.py, tool.py)
     └── renamer/           # tool 6  (engine.py, panel.py, tool.py)
 ```
 
@@ -317,7 +332,7 @@ pytest -q
 - [x] Sequential folder renamer
 - [x] Estimated time left while working
 - [x] Video toolbox: trim, convert, compress, extract frames
-- [ ] Text toolbox: summaries, clean-up, format conversion
+- [x] Text toolbox: summaries, clean-up, format conversion
 - [x] Audio toolbox: normalise, split, convert
 - [ ] Command-line mode for scheduled jobs
 - [ ] Ready-made Windows installer (no Python needed)
