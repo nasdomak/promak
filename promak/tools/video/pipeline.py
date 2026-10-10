@@ -44,6 +44,12 @@ PAUSE_BETWEEN_VIDEOS = (6.0, 15.0)
 # the rest of the queue is left waiting instead of failing one by one.
 BLOCK_COOLDOWNS = (60, 300, 900)
 
+# With "keep trying" on, a block that outlasts the cooldowns is waited out
+# in longer steps, so a playlist started in the evening is complete in the
+# morning without anyone pressing Start again.
+RESUME_WAIT = 1800
+RESUME_ROUNDS = 12
+
 
 # Windows refuses paths longer than 260 characters unless long paths are
 # enabled, and a video title can easily be 100 characters on its own.
@@ -112,7 +118,7 @@ class PipelineEngine:
         self.weights = StageWeights.for_options(options)
         self._offsets = self.weights.offsets()
         self._info: Optional[Dict] = None
-        downloader.configure(options.cookies_from_browser)
+        downloader.configure(options.cookies_from_browser, options.cookies_file)
 
     # ------------------------------------------------------------- helpers
     def _log(self, level: str, message: str) -> None:
@@ -152,10 +158,25 @@ class PipelineEngine:
             self.cancel_event.wait(min(1.0, left))
         raise PipelineCancelled()
 
+    def _update_engine(self) -> None:
+        """An outdated engine is the most common reason a site turns suspicious."""
+        self._log("info", "Checking the download engine for updates...")
+        ok, output, used_now = downloader.update_engine()
+        if not ok:
+            last = output.splitlines()[-1] if output else "no answer"
+            self._log("warning", f"The download engine could not be updated ({last}); carrying on.")
+        elif used_now:
+            self._log("info", "The download engine is up to date.")
+        else:
+            self._log("info", "The download engine is up to date; a newer copy, if any, counts after a restart.")
+
     def _run_with_cooldowns(self, job: Job) -> None:
         """Run one job, waiting out a block from the site before giving up."""
         destination = job.destination
-        for attempt, cooldown in enumerate((*BLOCK_COOLDOWNS, None), start=1):
+        cooldowns = tuple(BLOCK_COOLDOWNS)
+        if self.options.auto_resume:
+            cooldowns += (RESUME_WAIT,) * RESUME_ROUNDS
+        for attempt, cooldown in enumerate((*cooldowns, None), start=1):
             try:
                 self._run_job(job)
                 return
@@ -171,7 +192,7 @@ class PipelineEngine:
                     "warning",
                     f"The site is refusing requests (it suspects a robot). Waiting "
                     f"{minutes or cooldown} {'min' if minutes else 's'} before trying "
-                    f"'{job.display_name}' again (attempt {attempt + 1} of {len(BLOCK_COOLDOWNS) + 1}).",
+                    f"'{job.display_name}' again (attempt {attempt + 1} of {len(cooldowns) + 1}).",
                 )
                 job.stage = Stage.QUEUED
                 job.progress = 0.0
@@ -184,6 +205,8 @@ class PipelineEngine:
         pending = [job for job in jobs if not job.stage.is_final]
         self._log("info", f"Starting {len(pending)} job(s).")
         blocked = False
+        if self.options.update_engine_first and pending:
+            self._update_engine()
 
         for index, job in enumerate(pending, start=1):
             if blocked:

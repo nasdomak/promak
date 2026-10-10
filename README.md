@@ -55,8 +55,13 @@ and the choice is remembered.
   individual rows in the queue. General, specific or mixed all work.
 * **Playlists** — optionally split a playlist or channel link into its videos.
   Long lists are fetched at a human pace (a short pause between videos), and if
-  the site starts refusing requests Promak waits it out and retries; if the block
-  lasts, the remaining videos stay in the queue for a later *Start* instead of failing.
+  the site starts refusing requests Promak waits it out and retries. With *Keep
+  trying when the site blocks* (on by default) it carries on by itself for up to
+  several hours, so a long playlist can run overnight; without it the remaining
+  videos stay in the queue for a later *Start*.
+* **Engine kept fresh** — *Update the download engine before a run* checks for a
+  newer yt-dlp at most once a day: an outdated engine is the usual reason a site
+  turns suspicious.
 * **Free transcription** — [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
   runs on your own machine. The model is downloaded once, then works offline.
 * **Resumable** — files that already exist are reused instead of downloaded again.
@@ -64,7 +69,9 @@ and the choice is remembered.
   audio stream, which is several times faster.
 * **Signed-in downloads** — for age-restricted videos, or when a site asks to
   "confirm you're not a bot", pick your browser under *Use cookies from* and
-  Promak borrows its cookies.
+  Promak borrows its cookies (Firefox works best on Windows). If the browser keeps
+  them locked, export a `cookies.txt` with a browser extension while logged in and
+  pick it under *or a cookies file*.
 * **Files that actually play** — *Play on any device* asks for H.264 instead of
   VP9/AV1, so the MP4 opens in any player. Every download is then inspected: a
   truncated or stream-only file is fetched again automatically.
