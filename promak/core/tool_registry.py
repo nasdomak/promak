@@ -17,6 +17,9 @@ from typing import List, Optional, Type
 
 log = logging.getLogger(__name__)
 
+#: the tools shipped with Promak, used when the folder cannot be listed
+BUILT_IN_TOOLS = ("video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer")
+
 
 @dataclass(frozen=True)
 class ToolInfo:
@@ -58,14 +61,17 @@ class ToolRegistry:
         import promak.tools as tools_pkg
 
         found: List[PromakTool] = []
-        for module_info in pkgutil.iter_modules(tools_pkg.__path__):
-            if not module_info.ispkg or module_info.name.startswith("_"):
-                continue
-            dotted = f"{tools_pkg.__name__}.{module_info.name}.tool"
+        names = [m.name for m in pkgutil.iter_modules(tools_pkg.__path__)
+                 if m.ispkg and not m.name.startswith("_")]
+        if not names:
+            # an installed (frozen) copy may hide its folders from pkgutil
+            names = list(BUILT_IN_TOOLS)
+        for name in names:
+            dotted = f"{tools_pkg.__name__}.{name}.tool"
             try:
                 module = importlib.import_module(dotted)
             except Exception as exc:
-                log.exception("Tool '%s' could not be loaded: %s", module_info.name, exc)
+                log.exception("Tool '%s' could not be loaded: %s", name, exc)
                 continue
 
             tool_cls: Optional[Type[PromakTool]] = getattr(module, "PROMAK_TOOL", None)

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
+from pathlib import Path
 
 from promak.core.config import get_config
 from promak.core.logging_setup import setup_logging
@@ -117,9 +119,33 @@ def main(argv: list[str] | None = None) -> int:
     if not icon.isNull():
         # set on the window too: the taskbar button reads the window's icon
         window.setWindowIcon(icon)
+    report = os.environ.get("PROMAK_SELFTEST")
+    if report:
+        return _self_test(window, Path(report), icon)
     window.show()
     log.info("Promak %s started.", promak.__version__)
     return app.exec()
+
+
+def _self_test(window, report: "Path", icon) -> int:
+    """Used by the release build: prove the packaged program starts whole.
+
+    Writes what it found to ``report`` and quits without showing anything.
+    """
+    from promak.core.dependencies import check_dependencies, image_dependencies
+    from promak.core.tool_registry import BUILT_IN_TOOLS, registry
+
+    tools = [tool.info.id for tool in registry.tools]
+    components = check_dependencies() + image_dependencies()
+    lines = [
+        f"tools={','.join(tools)}",
+        f"icon={'ok' if not icon.isNull() else 'missing'}",
+        *(f"{d.key}={'ok' if d.available else 'missing'}" for d in components),
+    ]
+    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    window.close()
+    whole = set(tools) == set(BUILT_IN_TOOLS) and not icon.isNull() and all(d.available for d in components)
+    return 0 if whole else 1
 
 
 def application_icon():

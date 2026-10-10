@@ -179,3 +179,15 @@ def test_the_video_tool_uses_its_new_id():
     found = {tool.info.id for tool in ToolRegistry().discover()}
     assert LEGACY_TOOL_ID not in found
     assert "video" in found
+
+
+def test_built_in_tool_list_matches_the_tool_folders():
+    """The fallback list used by the installed program must name every tool."""
+    from pathlib import Path
+
+    import promak.tools
+    from promak.core.tool_registry import BUILT_IN_TOOLS
+
+    folders = {p.name for p in Path(promak.tools.__file__).parent.iterdir()
+               if (p / "tool.py").exists()}
+    assert set(BUILT_IN_TOOLS) == folders

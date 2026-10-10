@@ -188,6 +188,15 @@ Work trip   ->  03 - Work trip
 
 ## Installation (Windows)
 
+### The easy way: the installer
+
+Download **`PromakSetup-<version>.exe`** from the
+[Releases page](https://github.com/nasdomak/promak/releases), run it, done:
+no Python, no command, Start-menu and desktop shortcuts with the Promak logo.
+To update, run the newer installer over the old one; your settings stay.
+
+### From the source code
+
 1. Install [Python 3.10 or newer](https://www.python.org/downloads/) and tick
    **"Add python.exe to PATH"** during the setup.
 2. Download this repository (green **Code** button → **Download ZIP**) and unzip it.
@@ -347,6 +356,21 @@ pip install pytest Pillow vtracer
 pytest -q
 ```
 
+### Publishing a new installer
+
+Raise `__version__` in `promak/__init__.py` (and `version` in
+`pyproject.toml`), then push a tag with the same number:
+
+```bash
+git tag v0.4.0
+git push origin v0.4.0
+```
+
+GitHub builds the program (`packaging/promak.spec`), starts it once in
+self-test mode to prove every tool loads, wraps it in an installer
+(`packaging/promak.iss`) and publishes `PromakSetup-0.4.0.exe` on the
+Releases page - about 15 minutes, nothing to do by hand.
+
 ---
 
 ## Roadmap
@@ -362,7 +386,7 @@ pytest -q
 - [x] Text toolbox: summaries, clean-up, format conversion
 - [x] Audio toolbox: normalise, split, convert
 - [x] Command-line mode for scheduled jobs
-- [ ] Ready-made Windows installer (no Python needed)
+- [x] Ready-made Windows installer (no Python needed)
 
 Ideas and pull requests are welcome — open an
 [issue](https://github.com/nasdomak/promak/issues).

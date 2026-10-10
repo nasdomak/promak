@@ -59,6 +59,9 @@ def models_dir() -> Path:
 
 def assets_dir() -> Path:
     """The folder holding the icons shipped with Promak."""
+    bundle = getattr(sys, "_MEIPASS", None)   # the installed (frozen) program
+    if bundle:
+        return Path(bundle) / "assets"
     return Path(__file__).resolve().parent.parent.parent / "assets"
 
 
