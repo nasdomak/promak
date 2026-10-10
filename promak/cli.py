@@ -9,6 +9,7 @@
     python -m promak rename   D:/Photos/2026 --code "{n:3} - {name}" --yes
     python -m promak rename   D:/Phone --files --code "{taken} {n:3}" --yes
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
+    python -m promak ocr      scans/ --make both --out text/
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -30,7 +31,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr")
 
 
 # ------------------------------------------------------------ the engines
@@ -117,11 +118,23 @@ def _pdf(args):
     return options, e.PdfBatch
 
 
+def _ocr(args):
+    from promak.tools.ocr.engine import OcrBatch, OcrOptions
+
+    options = OcrOptions(make=args.make, dpi=args.dpi, skip_text_pages=not args.read_all,
+                         suffix=args.suffix, overwrite=args.overwrite)
+    return options, OcrBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "ocr":
+        from promak.tools.ocr.engine import ACCEPTED_EXTENSIONS as OCR_EXTENSIONS
+
+        return OCR_EXTENSIONS
     if command == "pdf":
         from promak.tools.pdf.engine import ACCEPTED_EXTENSIONS, MERGE, PDF_EXTENSIONS
 
@@ -134,7 +147,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
-    "pdf": _pdf,
+    "pdf": _pdf, "ocr": _ocr,
 }
 
 
@@ -219,6 +232,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dpi", type=int, default=150)
     p.add_argument("--password", default="", help="to open a protected PDF, or the new password")
     p.add_argument("--name", default="", help="file name of the merged PDF")
+
+    p = file_tool("ocr", "read the text in pictures and scanned PDFs (offline OCR)")
+    p.add_argument("--make", choices=("text", "pdf", "both"), default="text", help="text file, searchable PDF or both")
+    p.add_argument("--dpi", type=int, default=200, help="how finely PDF pages are looked at")
+    p.add_argument("--read-all", action="store_true", help="also read PDF pages that already hold text")
+    p.add_argument("--suffix", default="")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
