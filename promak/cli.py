@@ -7,6 +7,7 @@
     python -m promak video    clips/ --out small/ --fit 25
     python -m promak text     notes/ --out clean/ --make both --format md
     python -m promak rename   D:/Photos/2026 --code "{n:3} - {name}" --yes
+    python -m promak rename   D:/Phone --files --code "{taken} {n:3}" --yes
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
 
 A folder given as input means every file in it the tool can open.  Without
@@ -217,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--password", default="", help="to open a protected PDF, or the new password")
     p.add_argument("--name", default="", help="file name of the merged PDF")
 
-    p = sub.add_parser("rename", help="give the folders inside a folder sequential names")
+    p = sub.add_parser("rename", help="give the folders (or with --files the files) inside a folder new names")
     p.add_argument("folder", type=Path, nargs="?", default=Path("."))
     p.add_argument("--code", default="{n} - {name}", help='naming code, e.g. "PRJ-{year}-{n:3} {name}"')
     p.add_argument("--start", type=int, default=1)
@@ -228,6 +229,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--keep-old-number", action="store_true")
     p.add_argument("--yes", action="store_true", help="rename; without it only the preview is printed")
     p.add_argument("--undo", action="store_true", help="put back the names of the last renaming")
+    p.add_argument("--files", action="store_true",
+                   help="rename the files instead of the folders; extra pieces {ext} {taken} {width} {height}")
+    p.add_argument("--only", default="", metavar="EXTENSIONS", help='with --files, e.g. "jpg,png"')
+    p.add_argument("--lower-ext", action="store_true", help="with --files, write .JPG as .jpg")
     return parser
 
 
@@ -277,30 +282,36 @@ def run_files(args) -> int:
 def run_rename(args) -> int:
     from promak.tools.renamer import engine as e
 
+    files = bool(getattr(args, "files", False))
+    noun = "file" if files else "folder"
+    journal_name = "filerename-last.json" if files else "renamer-last.json"
+    undo_hint = "python -m promak rename --files --undo" if files else "python -m promak rename --undo"
     if args.undo:
-        journal = e.last_journal()
+        journal = e.last_journal(name=journal_name)
         if journal is None:
             print("[!] There is no renaming to undo.", file=sys.stderr)
             return 2
         try:
-            print(f"[.] Old names put back on {e.undo_renames(journal)} folder(s).")
+            print(f"[.] Old names put back on {e.undo_renames(journal, name=journal_name)} {noun}(s).")
         except e.RenameError as exc:
             print(f"[!] {exc}", file=sys.stderr)
             return 1
         return 0
     options = e.RenameOptions(style=e.STYLE_CUSTOM, pattern=args.code, start=args.start, step=args.step,
                               digits=args.digits, order=args.order, descending=args.reverse,
-                              drop_old_number=not args.keep_old_number)
+                              drop_old_number=not args.keep_old_number,
+                              kind=e.KIND_FILES if files else e.KIND_FOLDERS,
+                              lower_extension=args.lower_ext, extensions=args.only)
     problem = options.validate()
     if problem:
         print(f"[!] {problem}", file=sys.stderr)
         return 2
     try:
-        folders = e.list_folders(args.folder, options.order, options.descending)
+        entries = e.list_entries(args.folder, options)
     except e.RenameError as exc:
         print(f"[!] {exc}", file=sys.stderr)
         return 2
-    plan = e.plan_renames(folders, options)
+    plan = e.plan_renames(entries, options)
     for item in plan:
         note = f"   [!] {item.problem}" if item.problem else ("" if item.changes else "   (already right)")
         print(f"{item.source.name}  ->  {item.new_name}{note}")
@@ -311,11 +322,11 @@ def run_rename(args) -> int:
         print("[.] Preview only. Add --yes to rename.")
         return 0
     try:
-        journal = e.apply_renames(plan)
+        journal = e.apply_renames(plan, journal_name=journal_name)
     except e.RenameError as exc:
         print(f"[!] {exc}", file=sys.stderr)
         return 1
-    print(f"[.] Renamed {len(journal.moves)} folder(s). Undo with:  python -m promak rename --undo .")
+    print(f"[.] Renamed {len(journal.moves)} {noun}(s). Undo with:  {undo_hint}")
     return 0
 
 

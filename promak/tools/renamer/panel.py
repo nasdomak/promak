@@ -37,8 +37,11 @@ from PySide6.QtWidgets import (
 from promak.core.config import get_config
 from promak.core.paths import open_in_file_manager
 from promak.tools.renamer.engine import (
+    KIND_FILES,
+    KIND_FOLDERS,
     ORDER_MANUAL,
     ORDER_NAME,
+    ORDER_TAKEN,
     ORDERS,
     CODE_EXAMPLES,
     CODE_PIECES,
@@ -51,7 +54,7 @@ from promak.tools.renamer.engine import (
     apply_renames,
     check_pattern,
     last_journal,
-    list_folders,
+    list_entries,
     plan_renames,
     sort_folders,
     undo_renames,
@@ -64,9 +67,30 @@ COL_OLD, COL_NEW, COL_NOTE = range(3)
 
 
 class RenamerPanel(QWidget):
-    """Number the folders inside a folder, with a preview and an undo."""
+    """Number the folders inside a folder, with a preview and an undo.
+
+    :class:`promak.tools.filerename.panel.FileRenamerPanel` is the same
+    screen for files: what differs is said by the class attributes below.
+    """
 
     TOOL_ID = "renamer"
+    KIND = KIND_FOLDERS
+    NOUN = "folder"
+    PAGE_TITLE = "Number folders in sequence"
+    PAGE_SUBTITLE = (
+        "Gives the folders inside a folder names in sequence - 01, 02, 03 - keeping their "
+        "old name or replacing it. You see every new name before anything is renamed, and "
+        "the last renaming can be undone."
+    )
+    FOLDER_BOX_TITLE = "1 - The folder that holds the folders"
+    PIECES = CODE_PIECES
+    EXAMPLES = CODE_EXAMPLES
+    JOURNAL = "renamer-last.json"
+    PIECES_HELP = (
+        "Write the name as you want it and put pieces in braces where the variable parts go: "
+        "{n} the number, {name} the old name, {date} the folder's date, {letter}, {roman}, "
+        "{parent}... Hover the code box for the full list."
+    )
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -83,13 +107,9 @@ class RenamerPanel(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(26, 22, 26, 18)
         outer.setSpacing(6)
-        title = QLabel("Number folders in sequence")
+        title = QLabel(self.PAGE_TITLE)
         title.setObjectName("PageTitle")
-        subtitle = QLabel(
-            "Gives the folders inside a folder names in sequence - 01, 02, 03 - keeping their "
-            "old name or replacing it. You see every new name before anything is renamed, and "
-            "the last renaming can be undone."
-        )
+        subtitle = QLabel(self.PAGE_SUBTITLE)
         subtitle.setObjectName("PageSubtitle")
         subtitle.setWordWrap(True)
         outer.addWidget(title)
@@ -114,7 +134,7 @@ class RenamerPanel(QWidget):
         layout.setSpacing(14)
 
         # --- 1. folder ---------------------------------------------------
-        box = QGroupBox("1 - The folder that holds the folders")
+        box = QGroupBox(self.FOLDER_BOX_TITLE)
         box_layout = QVBoxLayout(box)
         hint = QLabel("Drag a folder here, or pick it with the button.")
         hint.setObjectName("DropArea")
@@ -142,19 +162,30 @@ class RenamerPanel(QWidget):
         grid = QGridLayout(box)
         self.order_combo = QComboBox()
         for label, value in ORDERS:
-            self.order_combo.addItem(label, value)
+            if value != ORDER_TAKEN or self.KIND == KIND_FILES:
+                self.order_combo.addItem(label, value)
         self.order_combo.setToolTip(
             '"As I arrange them": select a row in the list and move it with the arrows.'
         )
         self.order_combo.currentIndexChanged.connect(self._on_order_changed)
         self.descending_check = QCheckBox("Reverse the order")
         self.descending_check.toggled.connect(self._on_order_changed)
-        self.hidden_check = QCheckBox("Include hidden folders")
+        self.hidden_check = QCheckBox(f"Include hidden {self.NOUN}s")
         self.hidden_check.toggled.connect(self.reload)
         grid.addWidget(QLabel("Order"), 0, 0)
         grid.addWidget(self.order_combo, 0, 1)
         grid.addWidget(self.descending_check, 1, 0, 1, 2)
         grid.addWidget(self.hidden_check, 2, 0, 1, 2)
+        self.extensions_input = QLineEdit()
+        self.extensions_input.setPlaceholderText("every file - or for example  jpg, png")
+        self.extensions_input.setToolTip("Rename only the files with these endings; leave it empty for all.")
+        self.extensions_input.editingFinished.connect(self.reload)
+        self.lower_ext_check = QCheckBox("Write the endings in small letters  (.JPG becomes .jpg)")
+        self.lower_ext_check.toggled.connect(self.refresh_preview)
+        if self.KIND == KIND_FILES:
+            grid.addWidget(QLabel("Only"), 3, 0)
+            grid.addWidget(self.extensions_input, 3, 1)
+            grid.addWidget(self.lower_ext_check, 4, 0, 1, 2)
         grid.setColumnStretch(1, 1)
         layout.addWidget(box)
 
@@ -183,10 +214,10 @@ class RenamerPanel(QWidget):
         # --- my own code ---------------------------------------------------
         self.pattern_input = QLineEdit()
         self.pattern_input.setPlaceholderText("for example  PRJ-{year}-{n:3} {name}")
-        self.pattern_input.setToolTip("\n".join(f"{piece}   {meaning}" for piece, meaning in CODE_PIECES))
+        self.pattern_input.setToolTip("\n".join(f"{piece}   {meaning}" for piece, meaning in self.PIECES))
         self.piece_combo = QComboBox()
         self.piece_combo.addItem("Insert a piece...", "")
-        for piece, meaning in CODE_PIECES:
+        for piece, meaning in self.PIECES:
             self.piece_combo.addItem(f"{piece}   {meaning}", piece.split(" ")[0])
         self.piece_combo.activated.connect(self._insert_piece)
         self.saved_combo = QComboBox()
@@ -202,11 +233,7 @@ class RenamerPanel(QWidget):
         saved_row.addWidget(self.saved_combo, 1)
         saved_row.addWidget(save_code)
         saved_row.addWidget(forget_code)
-        self.pieces_help = QLabel(
-            "Write the name as you want it and put pieces in braces where the variable parts go: "
-            "{n} the number, {name} the old name, {date} the folder's date, {letter}, {roman}, "
-            "{parent}... Hover the code box for the full list."
-        )
+        self.pieces_help = QLabel(self.PIECES_HELP)
         self.pieces_help.setObjectName("HintLabel")
         self.pieces_help.setWordWrap(True)
 
@@ -293,30 +320,34 @@ class RenamerPanel(QWidget):
     # ========================================================= settings
     def _load_settings(self) -> None:
         c = self.config
-        self._select(self.order_combo, c.get("renamer.order", ORDER_NAME))
-        self._select(self.style_combo, c.get("renamer.style", STYLE_NUMBER_NAME))
-        self.descending_check.setChecked(bool(c.get("renamer.descending", False)))
-        self.text_input.setText(c.get("renamer.text", "") or "")
-        self.separator_input.setText(c.get("renamer.separator", " - "))
-        self.start_spin.setValue(int(c.get("renamer.start", 1)))
-        self.step_spin.setValue(int(c.get("renamer.step", 1)) or 1)
-        self.digits_spin.setValue(int(c.get("renamer.digits", 2)))
-        self.drop_check.setChecked(bool(c.get("renamer.drop_old_number", True)))
-        self.pattern_input.setText(c.get("renamer.pattern", "{n} - {name}") or "{n} - {name}")
+        self._select(self.order_combo, c.get(f"{self.TOOL_ID}.order", ORDER_NAME))
+        self._select(self.style_combo, c.get(f"{self.TOOL_ID}.style", STYLE_NUMBER_NAME))
+        self.descending_check.setChecked(bool(c.get(f"{self.TOOL_ID}.descending", False)))
+        self.text_input.setText(c.get(f"{self.TOOL_ID}.text", "") or "")
+        self.separator_input.setText(c.get(f"{self.TOOL_ID}.separator", " - "))
+        self.start_spin.setValue(int(c.get(f"{self.TOOL_ID}.start", 1)))
+        self.step_spin.setValue(int(c.get(f"{self.TOOL_ID}.step", 1)) or 1)
+        self.digits_spin.setValue(int(c.get(f"{self.TOOL_ID}.digits", 2)))
+        self.drop_check.setChecked(bool(c.get(f"{self.TOOL_ID}.drop_old_number", True)))
+        self.pattern_input.setText(c.get(f"{self.TOOL_ID}.pattern", self.EXAMPLES[0]) or self.EXAMPLES[0])
+        self.lower_ext_check.setChecked(bool(c.get(f"{self.TOOL_ID}.lower_extension", False)))
+        self.extensions_input.setText(c.get(f"{self.TOOL_ID}.extensions", "") or "")
         self._fill_saved_codes()
         self._on_style_changed()
-        self.folder_input.setText(c.get("renamer.folder", "") or "")
+        self.folder_input.setText(c.get(f"{self.TOOL_ID}.folder", "") or "")
         if self.folder_input.text():
             self.reload()
 
     def save_settings(self) -> None:
         o = self.current_options()
+        key = self.TOOL_ID
         self.config.update({
-            "renamer.order": o.order, "renamer.style": o.style, "renamer.descending": o.descending,
-            "renamer.text": o.text, "renamer.separator": o.separator, "renamer.start": o.start,
-            "renamer.step": o.step, "renamer.digits": o.digits,
-            "renamer.drop_old_number": o.drop_old_number, "renamer.pattern": o.pattern,
-            "renamer.folder": self.folder_input.text().strip(),
+            f"{key}.order": o.order, f"{key}.style": o.style, f"{key}.descending": o.descending,
+            f"{key}.text": o.text, f"{key}.separator": o.separator, f"{key}.start": o.start,
+            f"{key}.step": o.step, f"{key}.digits": o.digits,
+            f"{key}.drop_old_number": o.drop_old_number, f"{key}.pattern": o.pattern,
+            f"{key}.folder": self.folder_input.text().strip(),
+            f"{key}.lower_extension": o.lower_extension, f"{key}.extensions": o.extensions,
         })
 
     @staticmethod
@@ -337,6 +368,9 @@ class RenamerPanel(QWidget):
             drop_old_number=self.drop_check.isChecked(),
             include_hidden=self.hidden_check.isChecked(),
             pattern=self.pattern_input.text(),
+            kind=self.KIND,
+            lower_extension=self.lower_ext_check.isChecked(),
+            extensions=self.extensions_input.text(),
         )
 
     # ====================================================== my own code
@@ -355,7 +389,7 @@ class RenamerPanel(QWidget):
             self.pattern_input.setFocus()
 
     def saved_codes(self) -> List[str]:
-        codes = self.config.get("renamer.saved_patterns") or []
+        codes = self.config.get(f"{self.TOOL_ID}.saved_patterns") or []
         return [c for c in codes if isinstance(c, str) and c.strip()]
 
     def _fill_saved_codes(self, select: str = "") -> None:
@@ -364,7 +398,7 @@ class RenamerPanel(QWidget):
         self.saved_combo.addItem("Choose a code...", "")
         for code in self.saved_codes():
             self.saved_combo.addItem(code, code)
-        for code in CODE_EXAMPLES:
+        for code in self.EXAMPLES:
             if code not in self.saved_codes():
                 self.saved_combo.addItem(f"{code}   (example)", code)
         index = self.saved_combo.findData(select) if select else 0
@@ -383,7 +417,7 @@ class RenamerPanel(QWidget):
             QMessageBox.information(self, "Save the code", problem)
             return
         codes = [c for c in self.saved_codes() if c != code]
-        self.config.set("renamer.saved_patterns", [code, *codes][:30])
+        self.config.set(f"{self.TOOL_ID}.saved_patterns", [code, *codes][:30])
         self._fill_saved_codes(select=code)
         self._log("info", f"Code saved: {code}")
 
@@ -392,7 +426,7 @@ class RenamerPanel(QWidget):
         codes = self.saved_codes()
         if code not in codes:
             return
-        self.config.set("renamer.saved_patterns", [c for c in codes if c != code])
+        self.config.set(f"{self.TOOL_ID}.saved_patterns", [c for c in codes if c != code])
         self._fill_saved_codes()
         self._log("info", f"Code deleted: {code}")
 
@@ -407,12 +441,11 @@ class RenamerPanel(QWidget):
         if text:
             options = self.current_options()
             try:
-                self._folders = list_folders(Path(text), options.order, options.descending,
-                                             options.include_hidden)
+                self._folders = list_entries(Path(text), options)
             except RenameError as exc:
                 self._log("error", str(exc))
         self.count_label.setText(
-            f"{len(self._folders)} folder(s) found." if text else "No folder chosen."
+            f"{len(self._folders)} {self.NOUN}(s) found." if text else "No folder chosen."
         )
         self.refresh_preview()
 
@@ -448,12 +481,13 @@ class RenamerPanel(QWidget):
         elif not self._plan:
             self.summary_label.setText("")
         else:
-            text = f"{len(changing)} folder(s) will be renamed."
+            text = f"{len(changing)} {self.NOUN}(s) will be renamed."
             if blocked:
                 text += f"  {len(blocked)} cannot be: see the Note column."
             self.summary_label.setText(text)
         self.start_button.setEnabled(bool(changing) and not blocked and not problem)
-        self.start_button.setText(f"Rename {len(changing)} folder(s)" if changing else "Rename the folders")
+        self.start_button.setText(f"Rename {len(changing)} {self.NOUN}(s)" if changing
+                                  else f"Rename the {self.NOUN}s")
 
     def _selected_rows(self) -> List[int]:
         model = self.table.selectionModel()
@@ -462,7 +496,7 @@ class RenamerPanel(QWidget):
     def _move(self, delta: int) -> None:
         rows = self._selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Move a folder", "Select one row, then move it.")
+            QMessageBox.information(self, f"Move a {self.NOUN}", "Select one row, then move it.")
             return
         row, target = rows[0], rows[0] + delta
         if not 0 <= target < len(self._folders):
@@ -501,6 +535,9 @@ class RenamerPanel(QWidget):
             if path.is_dir():
                 self.set_folder(path)
                 break
+            if self.KIND == KIND_FILES and path.is_file():
+                self.set_folder(path.parent)
+                break
         event.acceptProposedAction()
 
     # ========================================================= actions
@@ -509,15 +546,15 @@ class RenamerPanel(QWidget):
         if not changing:
             return
         answer = QMessageBox.question(
-            self, "Rename the folders",
-            f"Rename {len(changing)} folder(s)?\nYou can undo it afterwards with \"Undo last renaming\".",
+            self, f"Rename the {self.NOUN}s",
+            f"Rename {len(changing)} {self.NOUN}(s)?\nYou can undo it afterwards with \"Undo last renaming\".",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
         )
         if answer != QMessageBox.Yes:
             return
         self.save_settings()
         try:
-            journal = apply_renames(self._plan)
+            journal = apply_renames(self._plan, journal_name=self.JOURNAL)
         except RenameError as exc:
             self._log("error", str(exc))
             QMessageBox.warning(self, "Nothing was renamed", str(exc))
@@ -525,7 +562,7 @@ class RenamerPanel(QWidget):
             return
         for old, new in journal.moves:
             self._log("info", f"{Path(old).name}  ->  {Path(new).name}")
-        self._log("info", f"Renamed {len(journal.moves)} folder(s).")
+        self._log("info", f"Renamed {len(journal.moves)} {self.NOUN}(s).")
         self._folders = [Path(new) for _old, new in journal.moves] + [
             i.source for i in self._plan if not (i.ok and i.changes)
         ]
@@ -533,19 +570,19 @@ class RenamerPanel(QWidget):
         self._refresh_undo()
 
     def _undo(self) -> None:
-        journal = last_journal()
+        journal = last_journal(name=self.JOURNAL)
         if journal is None:
             return
         answer = QMessageBox.question(
             self, "Undo last renaming",
-            f"Put back the old names of {len(journal.moves)} folder(s) in\n{journal.parent}?",
+            f"Put back the old names of {len(journal.moves)} {self.NOUN}(s) in\n{journal.parent}?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
         )
         if answer != QMessageBox.Yes:
             return
         try:
-            count = undo_renames(journal)
-            self._log("info", f"Old names put back on {count} folder(s).")
+            count = undo_renames(journal, name=self.JOURNAL)
+            self._log("info", f"Old names put back on {count} {self.NOUN}(s).")
         except (RenameError, OSError) as exc:
             self._log("error", str(exc))
             QMessageBox.warning(self, "Undo", str(exc))
@@ -553,10 +590,10 @@ class RenamerPanel(QWidget):
         self._refresh_undo()
 
     def _refresh_undo(self) -> None:
-        journal = last_journal()
+        journal = last_journal(name=self.JOURNAL)
         self.undo_button.setEnabled(journal is not None)
         self.undo_button.setToolTip(
-            f"{len(journal.moves)} folder(s) renamed on {journal.when.replace('T', ' at ')}\nin {journal.parent}"
+            f"{len(journal.moves)} {self.NOUN}(s) renamed on {journal.when.replace('T', ' at ')}\nin {journal.parent}"
             if journal else "Nothing to undo."
         )
 
