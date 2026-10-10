@@ -6,8 +6,7 @@ Works with any site the download engine knows; Promak names none of them.
 from __future__ import annotations
 
 import logging
-import subprocess
-import sys
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -38,7 +37,6 @@ from PySide6.QtWidgets import (
 
 from promak.core.config import get_config
 from promak.core.dependencies import (
-    SUBPROCESS_QUIET,
     check_dependencies,
     missing_dependencies,
     refresh as refresh_dependencies,
@@ -102,22 +100,8 @@ class _Updater(QThread):
     done = Signal(bool, str)
 
     def run(self) -> None:  # noqa: D102
-        command = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp"]
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                errors="replace",
-                timeout=600,
-                **SUBPROCESS_QUIET,
-            )
-        except Exception as exc:
-            self.done.emit(False, str(exc))
-            return
-        output = ((result.stdout or "") + (result.stderr or "")).strip()
-        tail = "\n".join(output.splitlines()[-6:])
-        self.done.emit(result.returncode == 0, tail)
+        ok, output, _used_now = downloader.update_engine()
+        self.done.emit(ok, output)
 
 
 class VideoPanel(QWidget):
@@ -335,6 +319,25 @@ class VideoPanel(QWidget):
         grid.addWidget(cookies_label, 8, 0, 1, 2)
         grid.addWidget(self.cookies_combo, 9, 0, 1, 2)
 
+        self.cookies_file_input = QLineEdit()
+        self.cookies_file_input.setPlaceholderText("cookies.txt exported from the browser (optional)")
+        self.cookies_file_input.setToolTip(
+            "When the browser keeps its cookies locked (Chrome and Edge on Windows\n"
+            "often do), export them with a \"cookies.txt\" browser extension while you\n"
+            "are logged in to the site, and pick the file here. It wins over the\n"
+            "browser chosen above."
+        )
+        cookies_browse = QPushButton("Browse...")
+        cookies_browse.clicked.connect(self._browse_cookies_file)
+        cookies_row = QHBoxLayout()
+        cookies_row.setSpacing(6)
+        cookies_row.addWidget(self.cookies_file_input, 1)
+        cookies_row.addWidget(cookies_browse)
+        cookies_file_label = QLabel("or a cookies file")
+        cookies_file_label.setToolTip(self.cookies_file_input.toolTip())
+        grid.addWidget(cookies_file_label, 10, 0, 1, 2)
+        grid.addLayout(cookies_row, 11, 0, 1, 2)
+
         self.compatible_check = QCheckBox("Play on any device (H.264)")
         self.compatible_check.setToolTip(
             "The best streams on the big sites use VP9 or AV1. They save space,\n"
@@ -345,15 +348,30 @@ class VideoPanel(QWidget):
             "player handles modern codecs."
         )
         self.compatible_check.toggled.connect(self._on_options_changed)
-        grid.addWidget(self.compatible_check, 10, 0, 1, 2)
+        grid.addWidget(self.compatible_check, 12, 0, 1, 2)
 
         self.overwrite_check = QCheckBox("Redo files that already exist")
-        grid.addWidget(self.overwrite_check, 11, 0, 1, 2)
+        grid.addWidget(self.overwrite_check, 13, 0, 1, 2)
+
+        self.auto_resume_check = QCheckBox("Keep trying when the site blocks")
+        self.auto_resume_check.setToolTip(
+            "After many videos in a row a site may refuse requests for a while.\n"
+            "With this ticked Promak waits it out (up to several hours) and carries\n"
+            "on by itself, so a long playlist can run unattended overnight."
+        )
+        grid.addWidget(self.auto_resume_check, 14, 0, 1, 2)
+
+        self.auto_update_check = QCheckBox("Update the download engine before a run")
+        self.auto_update_check.setToolTip(
+            "Checks for a newer yt-dlp at most once a day, before the first video.\n"
+            "An outdated engine is the most common reason a site turns suspicious."
+        )
+        grid.addWidget(self.auto_update_check, 15, 0, 1, 2)
 
         self.options_hint = QLabel()
         self.options_hint.setObjectName("HintLabel")
         self.options_hint.setWordWrap(True)
-        grid.addWidget(self.options_hint, 12, 0, 1, 2)
+        grid.addWidget(self.options_hint, 16, 0, 1, 2)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         layout.addWidget(options_box)
@@ -440,6 +458,9 @@ class VideoPanel(QWidget):
         self._select_data(self.model_combo, config.get("video.whisper_model"))
         self._select_data(self.language_combo, config.get("video.language"))
         self._select_data(self.cookies_combo, config.get("video.cookies_from_browser", ""))
+        self.cookies_file_input.setText(str(config.get("video.cookies_file", "") or ""))
+        self.auto_resume_check.setChecked(bool(config.get("video.auto_resume", True)))
+        self.auto_update_check.setChecked(bool(config.get("video.auto_update_engine", True)))
         self._on_layout_changed()
         self._on_options_changed()
 
@@ -460,6 +481,9 @@ class VideoPanel(QWidget):
                 "video.whisper_model": self.model_combo.currentData(),
                 "video.language": self.language_combo.currentData(),
                 "video.cookies_from_browser": self.cookies_combo.currentData() or "",
+                "video.cookies_file": self.cookies_file_input.text().strip(),
+                "video.auto_resume": self.auto_resume_check.isChecked(),
+                "video.auto_update_engine": self.auto_update_check.isChecked(),
             }
         )
 
@@ -502,7 +526,9 @@ class VideoPanel(QWidget):
             folder_layout=self.layout_combo.currentData() or SORTED,
             overwrite=self.overwrite_check.isChecked(),
             cookies_from_browser=self.cookies_combo.currentData() or "",
+            cookies_file=self.cookies_file_input.text().strip(),
             compatible_video=self.compatible_check.isChecked(),
+            auto_resume=self.auto_resume_check.isChecked(),
         )
 
     def _on_options_changed(self, *_args) -> None:
@@ -818,6 +844,15 @@ class VideoPanel(QWidget):
             return None
         return path
 
+    def _browse_cookies_file(self) -> None:
+        start = self.cookies_file_input.text().strip() or str(Path.home())
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Cookies file", start, "Cookies (*.txt);;All files (*)"
+        )
+        if path:
+            self.cookies_file_input.setText(path)
+            self.save_settings()
+
     def _browse_destination(self) -> None:
         start = self.destination_input.text().strip() or str(default_output_dir())
         folder = QFileDialog.getExistingDirectory(self, "Default destination folder", start)
@@ -857,6 +892,12 @@ class VideoPanel(QWidget):
         self.log_view.clear()
         self.overall_bar.setValue(0)
         self.overall_bar.setFormat("Working... %p%")
+
+        if self.auto_update_check.isChecked():
+            last = float(self.config.get("video.engine_updated_at", 0.0) or 0.0)
+            if time.time() - last > 24 * 3600:
+                options.update_engine_first = True
+                self.config.update({"video.engine_updated_at": time.time()})
 
         self._worker = PipelineWorker(pending, options, self)
         self._worker.job_updated.connect(self._on_job_updated)
@@ -933,7 +974,13 @@ class VideoPanel(QWidget):
             "Run finished",
             f"Completed: {summary.get('done', 0)}\n"
             f"Failed: {summary.get('failed', 0)}\n"
-            f"Cancelled: {summary.get('cancelled', 0)}",
+            f"Cancelled: {summary.get('cancelled', 0)}"
+            + (
+                f"\nStill waiting: {summary['postponed']} (the site was blocking requests; "
+                "press Start again later to continue)"
+                if summary.get("postponed")
+                else ""
+            ),
         )
 
     def _log(self, level: str, message: str) -> None:

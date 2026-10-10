@@ -5,7 +5,7 @@ productivity tools (media, audio, video, text) behind a single GUI.
 Each tool is a self-contained plugin registered in ``promak.tools``.
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 __app_name__ = "Promak"
 __author__ = "Promak contributors"
 __license__ = "MIT"

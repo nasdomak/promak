@@ -35,6 +35,10 @@ DEFAULTS: Dict[str, Any] = {
     "video.folder_layout": "sorted",
     "video.overwrite": False,
     "video.cookies_from_browser": "",
+    "video.cookies_file": "",
+    "video.auto_resume": True,
+    "video.auto_update_engine": True,
+    "video.engine_updated_at": 0.0,
     "video.compatible_video": True,
     # ---- tool 2: picture to vector ----
     "vectorize.destination": "",

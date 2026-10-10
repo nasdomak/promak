@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
-from promak.core.dependencies import ffmpeg_exe
+from promak.core.dependencies import SUBPROCESS_QUIET, ffmpeg_exe
 from promak.core.paths import safe_filename, unique_path
 
 log = logging.getLogger(__name__)
@@ -23,6 +25,14 @@ class DownloadError(Exception):
     """A download failed for a reason worth showing to the user."""
 
 
+class SiteBlocked(DownloadError):
+    """The site stopped answering because it took us for a robot.
+
+    This is not about one video: every request is refused for a while, so
+    the right move is to wait and try again, not to go on to the next link.
+    """
+
+
 def _require_yt_dlp():
     try:
         import yt_dlp  # noqa: PLC0415
@@ -34,19 +44,70 @@ def _require_yt_dlp():
 
 
 _COOKIE_BROWSER: str = ""
+_COOKIE_FILE: str = ""
 
 
-def configure(cookies_from_browser: str = "") -> None:
-    """Set the browser whose cookies are handed to yt-dlp (empty = none).
+def configure(cookies_from_browser: str = "", cookies_file: str = "") -> None:
+    """Choose the signed-in session handed to yt-dlp (empty = none).
 
-    Some sites ask for a signed-in session for age-restricted
-    videos and when it suspects automated traffic; borrowing the cookies of
-    an installed browser is the standard way around it.
+    Some sites ask for a signed-in session for age-restricted videos and
+    when they suspect automated traffic.  Showing them your own session is
+    the way they expect: either borrowed straight from an installed browser,
+    or from a ``cookies.txt`` file exported from it.  The file wins when
+    both are set, because it also works when the browser keeps its cookies
+    locked (Chrome and Edge on Windows often do).
     """
-    global _COOKIE_BROWSER
+    global _COOKIE_BROWSER, _COOKIE_FILE
     _COOKIE_BROWSER = (cookies_from_browser or "").strip().lower()
-    if _COOKIE_BROWSER:
+    _COOKIE_FILE = (cookies_file or "").strip().strip('"')
+    if _COOKIE_FILE:
+        if Path(_COOKIE_FILE).is_file():
+            log.info("Using the cookies in %s.", _COOKIE_FILE)
+        else:
+            log.warning("The cookies file %s does not exist; it is ignored.", _COOKIE_FILE)
+            _COOKIE_FILE = ""
+    if _COOKIE_BROWSER and not _COOKIE_FILE:
         log.info("Using cookies from %s.", _COOKIE_BROWSER)
+
+
+def update_engine(timeout: int = 600) -> tuple[bool, str, bool]:
+    """Update yt-dlp with pip.
+
+    Returns ``(ok, last lines of pip's output, used_now)``.  ``used_now`` is
+    False when yt-dlp was already loaded in this session: Python keeps the
+    old copy in memory, so the new one only counts after a restart.
+    """
+    used_now = "yt_dlp" not in sys.modules
+    command = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp"]
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+            **SUBPROCESS_QUIET,
+        )
+    except Exception as exc:
+        return False, str(exc), used_now
+    output = ((result.stdout or "") + (result.stderr or "")).strip()
+    tail = "\n".join(output.splitlines()[-6:])
+    return result.returncode == 0, tail, used_now
+
+
+def is_block(exc: Exception) -> bool:
+    """True when the site refuses us as automated traffic, not this one video."""
+    text = str(exc).lower()
+    if "not a bot" in text or "http error 429" in text or "too many requests" in text:
+        return True
+    # "Sign in to confirm your age" is about the video, not about us.
+    return "sign in to confirm" in text and "your age" not in text
+
+
+def _fail(exc: Exception) -> DownloadError:
+    """Wrap a yt-dlp error in the exception the pipeline knows how to handle."""
+    kind = SiteBlocked if is_block(exc) else DownloadError
+    return kind(_humanize(exc))
 
 
 def _is_cookie_problem(exc: Exception) -> bool:
@@ -64,6 +125,9 @@ def _base_options() -> Dict:
         "retries": 5,
         "fragment_retries": 5,
         "socket_timeout": 30,
+        # A short breath between the many small requests behind one video:
+        # firing them back to back is what makes a site suspect a robot.
+        "sleep_interval_requests": 1,
         "consoletitle": False,
         "nocheckcertificate": False,
         "restrictfilenames": False,
@@ -75,7 +139,9 @@ def _base_options() -> Dict:
     executable = ffmpeg_exe()
     if executable:
         options["ffmpeg_location"] = executable
-    if _COOKIE_BROWSER:
+    if _COOKIE_FILE:
+        options["cookiefile"] = _COOKIE_FILE
+    elif _COOKIE_BROWSER:
         options["cookiesfrombrowser"] = (_COOKIE_BROWSER,)
     return options
 
@@ -128,16 +194,16 @@ def fetch_metadata(url: str) -> Dict:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        if _COOKIE_BROWSER and _is_cookie_problem(exc):
+        if _COOKIE_BROWSER and not _COOKIE_FILE and _is_cookie_problem(exc):
             log.warning("Browser cookies could not be read (%s); continuing without them.", exc)
-            configure("")
+            configure("", _COOKIE_FILE)
             try:
                 with yt_dlp.YoutubeDL(_base_options() | {"skip_download": True}) as ydl:
                     info = ydl.extract_info(url, download=False)
             except Exception as second:
-                raise DownloadError(_humanize(second)) from second
+                raise _fail(second) from second
         else:
-            raise DownloadError(_humanize(exc)) from exc
+            raise _fail(exc) from exc
 
     if info is None:
         raise DownloadError("No video information was returned for this link.")
@@ -159,7 +225,7 @@ def expand_playlist(url: str) -> list[Dict]:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        raise DownloadError(_humanize(exc)) from exc
+        raise _fail(exc) from exc
     if not info:
         return []
     if info.get("_type") != "playlist":
@@ -185,11 +251,16 @@ def download(
     compatible: bool = True,
     progress: Optional[ProgressCallback] = None,
     cancel_event: Optional[threading.Event] = None,
+    info: Optional[Dict] = None,
 ) -> Path:
     """Download one video (or only its audio) and return the saved file.
 
     When ``keep_video`` is False only the audio stream is fetched, which is
     several times faster and is all the MP3 and the transcript need.
+
+    ``info`` is what :func:`fetch_metadata` already read for this link.
+    Reusing it spares the site a second identical visit, which halves the
+    requests of a long playlist; without it the page is read again.
     """
     yt_dlp = _require_yt_dlp()
     destination.mkdir(parents=True, exist_ok=True)
@@ -233,10 +304,23 @@ def download(
         progress(percent, detail)
 
     options["progress_hooks"] = [hook]
+    prefetched = info if info and info.get("formats") else None
+
+    def run(opts: Dict) -> Optional[Dict]:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            if prefetched is not None:
+                try:
+                    return ydl.process_ie_result(dict(prefetched), download=True)
+                except CancelledByUser:
+                    raise
+                except Exception as exc:  # stale stream links: read the page again
+                    if is_block(exc) or _is_merge_problem(exc) or _is_cookie_problem(exc):
+                        raise
+                    log.debug("Reusing the video information failed (%s); reading it again.", exc)
+            return ydl.extract_info(url, download=True)
 
     try:
-        with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=True)
+        info = run(options)
     except CancelledByUser:
         raise
     except Exception as exc:
@@ -251,24 +335,23 @@ def download(
             )
             options.pop("merge_output_format", None)
             retry = True
-        elif _COOKIE_BROWSER and _is_cookie_problem(exc):
+        elif _COOKIE_BROWSER and not _COOKIE_FILE and _is_cookie_problem(exc):
             log.warning("Browser cookies could not be read (%s); retrying without them.", exc)
             if progress:
                 progress(0.0, "browser cookies unavailable, retrying without them")
-            configure("")
+            configure("", _COOKIE_FILE)
             options.pop("cookiesfrombrowser", None)
             retry = True
 
         if retry:
             try:
-                with yt_dlp.YoutubeDL(options) as ydl:
-                    info = ydl.extract_info(url, download=True)
+                info = run(options)
             except CancelledByUser:
                 raise
             except Exception as second:
-                raise DownloadError(_humanize(second)) from second
+                raise _fail(second) from second
         else:
-            raise DownloadError(_humanize(exc)) from exc
+            raise _fail(exc) from exc
 
     path = _resolve_output(info, destination, base_name)
     if path is None:
@@ -333,12 +416,7 @@ def _humanize(exc: Exception) -> str:
         return "This video is private."
     if "video unavailable" in lowered or "not available" in lowered:
         return "This video is unavailable (removed, region-locked or age-restricted)."
-    if "not a bot" in lowered or "sign in to confirm" in lowered:
-        return (
-            "The site asks for a sign-in for this video. In the options, set "
-            "\"Use cookies from\" to the browser where you are logged in to that site."
-        )
-    if "age" in lowered and "restricted" in lowered:
+    if "age" in lowered and ("restricted" in lowered or "confirm your age" in lowered):
         return (
             "This video is age-restricted. Set \"Use cookies from\" to the browser "
             "where you are logged in to that site."
@@ -347,6 +425,12 @@ def _humanize(exc: Exception) -> str:
         return "This link is not supported."
     if "http error 429" in lowered or "too many requests" in lowered:
         return "The site is rate-limiting this computer. Wait a few minutes and retry."
+    if "not a bot" in lowered or "sign in to confirm" in lowered:
+        return (
+            "The site took the run for a robot and asks for a sign-in. Waiting a while "
+            "usually clears it; setting \"Use cookies from\" to the browser where you "
+            "are logged in to that site avoids it."
+        )
     if any(
         word in lowered
         for word in (
