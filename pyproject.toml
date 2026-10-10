@@ -43,7 +43,7 @@ Issues = "https://github.com/nasdomak/promak/issues"
 promak = "promak.app:main"
 
 [project.scripts]
-promak-cli = "promak.app:main"
+promak-cli = "promak.cli:entry"
 
 [tool.setuptools.packages.find]
 include = ["promak*"]

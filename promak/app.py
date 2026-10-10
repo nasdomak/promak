@@ -76,6 +76,12 @@ def _own_taskbar_entry() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from promak import cli
+
+    command_line = list(sys.argv if argv is None else argv)[1:]
+    if cli.wants_cli(command_line):
+        return cli.main(command_line)
+
     setup_logging()
     _install_crash_handler()
     # before Qt is even imported, so no window can exist without the id

@@ -246,6 +246,32 @@ the CPU.
 
 ---
 
+## Command line and scheduled jobs
+
+Every file tool also runs without the window, so it can be put in the
+Windows Task Scheduler or a script. On Windows use **`promak.bat`** in the
+Promak folder; elsewhere `python -m promak`.
+
+```bat
+promak.bat resize "D:\Photos" --out "D:\Web" --longest 1600 --format webp
+promak.bat shrink "D:\Photos" --out "D:\Light" --under 500
+promak.bat audio  "D:\Lessons" --out "D:\MP3" --level -16 --split 10
+promak.bat video  "D:\Clips" --out "D:\Small" --fit 25
+promak.bat text   "D:\Notes" --out "D:\Clean" --make both --format md
+promak.bat vector logo.png --out svg --bw
+promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}"          (preview)
+promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}" --yes    (rename)
+promak.bat rename --undo
+promak.bat --help              (every command)
+promak.bat resize --help       (every option of one command)
+```
+
+A folder means every file in it the tool can open. Without `--out` the new
+files go next to the originals, which are never changed. Exit code 0 = all
+done, 1 = some files failed, 2 = the command was wrong.
+
+---
+
 ## If something goes wrong
 
 | What you see | What to do |
@@ -272,6 +298,7 @@ the existing ones.
 ```
 promak/
 ├── app.py                 # start-up
+├── cli.py                 # the same tools from the command line
 ├── core/                  # settings, logging, paths, dependency checks
 │   ├── tool_registry.py   # discovers the tools listed in the sidebar
 │   ├── batch.py           # the queue every file tool runs on
@@ -334,7 +361,7 @@ pytest -q
 - [x] Video toolbox: trim, convert, compress, extract frames
 - [x] Text toolbox: summaries, clean-up, format conversion
 - [x] Audio toolbox: normalise, split, convert
-- [ ] Command-line mode for scheduled jobs
+- [x] Command-line mode for scheduled jobs
 - [ ] Ready-made Windows installer (no Python needed)
 
 Ideas and pull requests are welcome — open an
