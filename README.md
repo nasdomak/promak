@@ -87,6 +87,9 @@ and the choice is remembered.
 * **One folder or many** — set a general destination, then override it for
   individual rows in the queue. General, specific or mixed all work.
 * **Playlists** — optionally split a playlist or channel link into its videos.
+  Long lists are fetched at a human pace (a short pause between videos), and if
+  the site starts refusing requests Promak waits it out and retries; if the block
+  lasts, the remaining videos stay in the queue for a later *Start* instead of failing.
 * **Free transcription** — [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
   runs on your own machine. The model is downloaded once, then works offline.
 * **Resumable** — files that already exist are reused instead of downloaded again.
@@ -633,7 +636,7 @@ done, 1 = some files failed, 2 = the command was wrong.
 |--------------|------------|
 | A component says **MISSING** at the top of the window | Press *Check components*; if it stays missing, run `install_windows.bat` again |
 | Every video fails, whatever the link | Press **Update the download engine** — video sites change often and this is the usual cure |
-| *"The site asks for a sign-in"* | Set **Use cookies from** to the browser where you are logged in to that site |
+| *"The site took the run for a robot"* / *"still waiting"* after a long playlist | Wait an hour and press **Start** again: the videos left in the queue continue. Setting **Use cookies from** to a browser where you are logged in prevents it |
 | *"The site could not be reached"* | Check the connection, a VPN or a company firewall |
 | *"The speech model could not be downloaded"* | Same: the first transcription needs internet access to fetch the model once |
 | **The picture freezes after a few seconds while the sound keeps playing** | The video uses VP9 or AV1. Tick **Play on any device (H.264)** and download it again, or install the free *AV1 Video Extension* from the Microsoft Store |

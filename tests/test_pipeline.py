@@ -82,7 +82,7 @@ def test_full_run_produces_video_and_mp3(tmp_path, fake_download):
 
     summary = PipelineEngine(options, on_log=lambda lvl, msg: logs.append(msg)).run([job])
 
-    assert summary == {"done": 1, "failed": 0, "cancelled": 0}
+    assert summary == {"done": 1, "failed": 0, "cancelled": 0, "postponed": 0}
     assert job.stage is Stage.DONE
     assert job.overall == 100.0
     # The forbidden "/" in the title must not have created a subfolder.
@@ -364,3 +364,74 @@ def test_old_subfolder_setting_is_understood(tmp_path):
     assert normalise_mode(False) == SORTED
     assert normalise_mode(None) == SORTED
     assert normalise_mode("something odd") == SORTED
+
+
+# ------------------------------------------------------ site blocking a run
+def test_bot_check_and_age_check_are_told_apart():
+    assert downloader.is_block(Exception("ERROR: Sign in to confirm you're not a bot"))
+    assert downloader.is_block(Exception("ERROR: HTTP Error 429: Too Many Requests"))
+    assert not downloader.is_block(Exception("ERROR: Sign in to confirm your age"))
+    assert "age-restricted" in downloader._humanize(Exception("Sign in to confirm your age"))
+
+
+@needs_ffmpeg
+def test_a_short_block_is_waited_out_and_the_same_video_retried(tmp_path, monkeypatch):
+    calls = {"count": 0}
+
+    def fetch_metadata(url):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise downloader.SiteBlocked("The site took the run for a robot.")
+        return {"title": "fine", "id": "ok1", "duration": 4}
+
+    def download(url, destination, base_name, **kwargs):
+        return make_media(Path(destination) / f"{base_name}.mp4")
+
+    monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
+    monkeypatch.setattr(downloader, "download", download)
+
+    job = Job(url="https://a-video-site.example/one", destination=tmp_path)
+    summary = PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run([job])
+
+    assert calls["count"] == 2
+    assert summary["done"] == 1
+    assert job.stage is Stage.DONE
+
+
+def test_a_lasting_block_leaves_the_rest_of_the_queue_waiting(tmp_path, monkeypatch):
+    calls = {"count": 0}
+
+    def fetch_metadata(url):
+        calls["count"] += 1
+        raise downloader.SiteBlocked("The site took the run for a robot.")
+
+    monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
+
+    jobs = [Job(url=f"https://a-video-site.example/{n}", destination=tmp_path) for n in range(5)]
+    summary = PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run(jobs)
+
+    # One video tried once plus once per cooldown, then nothing more is asked.
+    assert calls["count"] == len(pipeline.BLOCK_COOLDOWNS) + 1
+    assert summary["failed"] == 0 and summary["postponed"] == 5
+    assert all(job.stage is Stage.QUEUED for job in jobs)
+    assert all(job.destination == tmp_path for job in jobs)
+
+
+@needs_ffmpeg
+def test_the_download_reuses_the_information_already_read(tmp_path, monkeypatch):
+    seen = {}
+
+    def fetch_metadata(url):
+        return {"title": "fine", "id": "ok1", "duration": 4, "formats": [{}]}
+
+    def download(url, destination, base_name, **kwargs):
+        seen["info"] = kwargs.get("info")
+        return make_media(Path(destination) / f"{base_name}.mp4")
+
+    monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
+    monkeypatch.setattr(downloader, "download", download)
+
+    job = Job(url="https://a-video-site.example/one", destination=tmp_path)
+    PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run([job])
+
+    assert seen["info"]["id"] == "ok1"
