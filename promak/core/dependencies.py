@@ -308,6 +308,8 @@ def image_dependencies() -> List[Dependency]:
 TOOL_COMPONENTS = {
     "pikepdf": ("pikepdf", "pikepdf", "pikepdf", "reading and writing PDF files"),
     "pypdfium2": ("pypdfium2", "pypdfium2", "pypdfium2", "drawing PDF pages as pictures"),
+    "send2trash": ("send2trash", "send2trash", "send2trash", "putting files in the Recycle Bin"),
+    "imagehash": ("imagehash", "imagehash", "imagehash", "finding pictures that look alike"),
 }
 
 
