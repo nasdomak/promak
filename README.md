@@ -29,6 +29,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
 | **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
 | **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
+| **Remove hidden data** | Shows and removes the GPS position, camera and author data hidden in photos, PDF and Office files |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -242,6 +243,25 @@ Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
 * Every file and its new folder are shown first; **Undo last sorting** puts
   everything back and removes the folders the run created.
 
+## 7e. Remove hidden data
+
+Before a photo or a document is shared, see what it tells about you:
+
+| File | What is found and removed |
+|------|---------------------------|
+| JPG, PNG, WEBP, TIFF | GPS position, camera maker, model and serial number, lens, dates, editing program, author, comments, XMP and IPTC blocks |
+| PDF | author, title, subject, keywords, program, dates, XMP data |
+| DOCX, XLSX, PPTX | author, last editor, company, manager, template, editing time, custom properties |
+
+* Each file's findings are summed up in the queue as soon as it is added;
+  selecting it lists everything on the right, the personal ones marked with `!`.
+* **Pictures are not re-compressed**: the hidden blocks are cut out of the file,
+  so the copy looks exactly like the original. The colour profile and the
+  "this side up" flag are kept (phone photos would otherwise show sideways).
+* Comments and tracked changes in Word files are part of the text: they are
+  reported, to be removed in Word itself.
+* Clean copies are saved with `-clean` in the name; the originals are never changed.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -402,6 +422,7 @@ promak.bat ocr    "D:\Scans" --make both --out "D:\Text"
 promak.bat convert "D:\Reports" --to md
 promak.bat convert prices.csv --to xlsx
 promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
+promak.bat clean  "D:\To share" --out "D:\Clean"
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -477,6 +498,7 @@ promak/
     ├── filerename/        # rename files - the renamer's engine on files
     ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
+    ├── cleanmeta/         # remove hidden data (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)

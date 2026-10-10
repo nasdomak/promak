@@ -12,6 +12,7 @@
     python -m promak ocr      scans/ --make both --out text/
     python -m promak convert  report.docx --to md
     python -m promak sheets   jan.xlsx feb.csv --name Year --drop-duplicates
+    python -m promak clean    holiday/ --out to-share/
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -33,7 +34,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean")
 
 
 # ------------------------------------------------------------ the engines
@@ -147,11 +148,23 @@ def _sheets(args):
     return options, SheetMergeBatch
 
 
+def _clean(args):
+    from promak.tools.cleanmeta.engine import CleanBatch, CleanOptions
+
+    options = CleanOptions(keep_orientation=not args.drop_orientation, keep_colour_profile=not args.drop_profile,
+                           suffix=args.suffix, overwrite=args.overwrite)
+    return options, CleanBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "clean":
+        from promak.tools.cleanmeta.engine import ACCEPTED_EXTENSIONS as CLEAN_EXTENSIONS
+
+        return CLEAN_EXTENSIONS
     if command == "sheets":
         from promak.core.tables import TABLE_EXTENSIONS
 
@@ -176,7 +189,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
-    "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets,
+    "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
 }
 
 
@@ -280,6 +293,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--every-sheet", action="store_true", help="every sheet of a workbook, not only the first")
     p.add_argument("--no-source", action="store_true", help='no "Source file" column')
     p.add_argument("--drop-duplicates", action="store_true")
+
+    p = file_tool("clean", "remove GPS, camera and author data from photos, PDF and Office files")
+    p.add_argument("--suffix", default="-clean")
+    p.add_argument("--drop-orientation", action="store_true", help='also remove "this side up"')
+    p.add_argument("--drop-profile", action="store_true", help="also remove the colour profile")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)

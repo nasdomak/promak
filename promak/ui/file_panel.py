@@ -61,6 +61,7 @@ class FileQueuePanel(QWidget):
     FILE_DIALOG_FILTER = "Pictures (*.png *.jpg *.jpeg *.bmp *.gif *.tif *.tiff *.webp);;All files (*)"
     ACCEPTED_EXTENSIONS: Sequence[str] = RASTER_EXTENSIONS
     EXTRA_COLUMNS: Sequence[str] = ()
+    EXTRA_COLUMN_WIDTH = 66
     START_LABEL = "Start"
     ITEM_WORD = "pictures"          # used in the file dialogs: "Choose pictures"
     RUNNING_LABEL = "Working..."
@@ -231,7 +232,7 @@ class FileQueuePanel(QWidget):
         for column in range(1, len(self._columns)):
             view.setSectionResizeMode(column, QHeaderView.Interactive)
         for index in range(len(self.EXTRA_COLUMNS)):
-            self.table.setColumnWidth(1 + index, 66)
+            self.table.setColumnWidth(1 + index, self.EXTRA_COLUMN_WIDTH)
         self.table.setColumnWidth(self.COL_DESTINATION, 110)
         self.table.setColumnWidth(self.COL_STEP, 72)
         self.table.setColumnWidth(self.COL_PROGRESS, 80)

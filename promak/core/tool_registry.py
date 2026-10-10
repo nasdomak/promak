@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 BUILT_IN_TOOLS = (
     "video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer",
     "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert",
-    "sheetmerge",
+    "sheetmerge", "cleanmeta",
 )
 
 
