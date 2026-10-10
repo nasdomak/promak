@@ -11,11 +11,12 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Six tools so far, all in one window:
+Seven tools so far, all in one window:
 
 | Tool | What it does |
 |------|--------------|
 | **Video downloader** | Paste links from almost any site: Promak downloads the video, extracts the MP3 and writes a full transcript |
+| **Video toolbox** | Converts any video to an MP4 that plays everywhere, makes it lighter or fits it under a size, trims it, takes pictures out of it |
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
@@ -74,7 +75,20 @@ and the choice is remembered.
   falls back to a single ready-made stream; if the GPU misbehaves, the
   transcription restarts on the CPU. A failed video never stops the queue.
 
-## 2. Picture to vector (SVG)
+## 2. Video toolbox
+
+| Job | What you get |
+|-----|--------------|
+| MP4 that plays everywhere | H.264 + AAC, at the quality and maximum height you choose - also the way to make a video lighter |
+| Fit under a size | the quality is chosen for you so the file stays under 16 MB (chat apps), 25 MB (e-mail) or any size |
+| Cut only, no re-encoding | instant and lossless; the cut moves to the nearest key frame |
+| Take pictures out of the video | one JPG every N seconds, in a folder named after the video |
+
+* **Keep only a part** (from `1:30` to `4:00`) works with every job.
+* **Remove the sound** with one tick.
+* Smaller videos are never enlarged; your originals are never changed.
+
+## 2b. Picture to vector (SVG)
 
 Turns a picture made of pixels into a picture made of shapes and curves. A logo
 redrawn this way prints at any size — a business card or the side of a lorry —
@@ -266,6 +280,7 @@ promak/
     │   ├── downloader.py  # yt-dlp
     │   ├── audio.py       # FFmpeg
     │   └── transcriber.py # faster-whisper
+    ├── videotools/        # video toolbox (engine.py, panel.py, tool.py)
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
@@ -301,7 +316,7 @@ pytest -q
 - [x] Batch image tools: resize, convert, watermark
 - [x] Sequential folder renamer
 - [x] Estimated time left while working
-- [ ] Video toolbox: trim, convert, compress, extract frames
+- [x] Video toolbox: trim, convert, compress, extract frames
 - [ ] Text toolbox: summaries, clean-up, format conversion
 - [x] Audio toolbox: normalise, split, convert
 - [ ] Command-line mode for scheduled jobs
