@@ -18,6 +18,8 @@
     python -m promak collage  holiday/ --columns 3 --spacing 20
     python -m promak subtitles lessons/ --size large --out subtitled/
     python -m promak silence  lectures/ --level -35 --shortest 0.8
+    python -m promak zip      D:/Project --to D:/Project.7z --password ****
+    python -m promak unzip    D:/Downloads/photos.zip --to D:/Photos
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -39,7 +41,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip")
 
 
 # ------------------------------------------------------------ the engines
@@ -398,6 +400,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--keep", type=float, default=0.2, metavar="SECONDS", help="silence kept on each side")
     p.add_argument("--suffix", default=" - no silences")
 
+    p = sub.add_parser("zip", help="pack files and folders into a ZIP (AES password) or 7z archive")
+    p.add_argument("items", nargs="+", type=Path)
+    p.add_argument("--to", type=Path, required=True, help="the archive to write (.zip or .7z)")
+    p.add_argument("--seven", action="store_true", help="7z even if the name does not end in .7z")
+    p.add_argument("--level", type=int, default=6, choices=(0, 1, 6, 9))
+    p.add_argument("--password", default="")
+    p.add_argument("--overwrite", action="store_true")
+
+    p = sub.add_parser("unzip", help="list or extract ZIP, 7z and TAR archives safely")
+    p.add_argument("archives", nargs="+", type=Path)
+    p.add_argument("--to", type=Path, help="destination folder (default: next to each archive)")
+    p.add_argument("--here", action="store_true", help="no folder of its own for each archive")
+    p.add_argument("--list", action="store_true", help="only list what is inside")
+    p.add_argument("--password", default="")
+    p.add_argument("--overwrite", action="store_true")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -624,6 +642,48 @@ def run_qr(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def run_zip(args) -> int:
+    from promak.tools.archives import engine as e
+
+    fmt = e.SEVEN if str(args.to).lower().endswith(".7z") or args.seven else e.ZIP
+    options = e.MakeOptions(items=list(args.items), target=args.to, fmt=fmt, level=args.level,
+                            password=args.password, overwrite=args.overwrite)
+    try:
+        target, count = e.make_archive(options)
+    except e.ArchiveError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        return 2 if options.validate() else 1
+    print(f"[.] {count} file(s) packed into {target}")
+    return 0
+
+
+def run_unzip(args) -> int:
+    from promak.tools.archives import engine as e
+
+    if args.list:
+        for archive in args.archives:
+            try:
+                entries = e.list_archive(archive, args.password)
+            except e.ArchiveError as exc:
+                print(f"[!] {archive}: {exc}", file=sys.stderr)
+                return 1
+            for entry in entries:
+                if not entry.folder:
+                    print(f"{entry.size:>12}  {entry.when_text:16}  {entry.name}{'   [!] ' + entry.problem if entry.problem else ''}")
+            print(f"[.] {archive}: {e.describe(entries)}")
+        return 0
+    failed = 0
+    for archive in args.archives:
+        try:
+            folder, count = e.extract_archive(archive, args.to or Path(archive).parent, args.password,
+                                              own_folder=not args.here, overwrite=args.overwrite)
+            print(f"[.] {archive}: {count} file(s) into {folder}")
+        except e.ArchiveError as exc:
+            print(f"[!] {archive}: {exc}", file=sys.stderr)
+            failed += 1
+    return 1 if failed else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -641,6 +701,10 @@ def main(argv: Sequence[str]) -> int:
         return run_sortdate(args)
     if args.command == "qr":
         return run_qr(args)
+    if args.command == "zip":
+        return run_zip(args)
+    if args.command == "unzip":
+        return run_unzip(args)
     return run_files(args)
 
 

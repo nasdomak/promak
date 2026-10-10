@@ -40,6 +40,8 @@ dependencies = [
     "openpyxl>=3.1",
     "segno>=1.5",
     "python-barcode>=0.15",
+    "pyzipper>=0.3.6",
+    "py7zr>=0.20",
 ]
 
 [project.optional-dependencies]
