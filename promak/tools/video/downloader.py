@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
-from promak.core.dependencies import ffmpeg_exe
+from promak.core.dependencies import SUBPROCESS_QUIET, ffmpeg_exe
 from promak.core.paths import safe_filename, unique_path
 
 log = logging.getLogger(__name__)
@@ -42,19 +44,55 @@ def _require_yt_dlp():
 
 
 _COOKIE_BROWSER: str = ""
+_COOKIE_FILE: str = ""
 
 
-def configure(cookies_from_browser: str = "") -> None:
-    """Set the browser whose cookies are handed to yt-dlp (empty = none).
+def configure(cookies_from_browser: str = "", cookies_file: str = "") -> None:
+    """Choose the signed-in session handed to yt-dlp (empty = none).
 
-    Some sites ask for a signed-in session for age-restricted
-    videos and when it suspects automated traffic; borrowing the cookies of
-    an installed browser is the standard way around it.
+    Some sites ask for a signed-in session for age-restricted videos and
+    when they suspect automated traffic.  Showing them your own session is
+    the way they expect: either borrowed straight from an installed browser,
+    or from a ``cookies.txt`` file exported from it.  The file wins when
+    both are set, because it also works when the browser keeps its cookies
+    locked (Chrome and Edge on Windows often do).
     """
-    global _COOKIE_BROWSER
+    global _COOKIE_BROWSER, _COOKIE_FILE
     _COOKIE_BROWSER = (cookies_from_browser or "").strip().lower()
-    if _COOKIE_BROWSER:
+    _COOKIE_FILE = (cookies_file or "").strip().strip('"')
+    if _COOKIE_FILE:
+        if Path(_COOKIE_FILE).is_file():
+            log.info("Using the cookies in %s.", _COOKIE_FILE)
+        else:
+            log.warning("The cookies file %s does not exist; it is ignored.", _COOKIE_FILE)
+            _COOKIE_FILE = ""
+    if _COOKIE_BROWSER and not _COOKIE_FILE:
         log.info("Using cookies from %s.", _COOKIE_BROWSER)
+
+
+def update_engine(timeout: int = 600) -> tuple[bool, str, bool]:
+    """Update yt-dlp with pip.
+
+    Returns ``(ok, last lines of pip's output, used_now)``.  ``used_now`` is
+    False when yt-dlp was already loaded in this session: Python keeps the
+    old copy in memory, so the new one only counts after a restart.
+    """
+    used_now = "yt_dlp" not in sys.modules
+    command = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp[default,curl-cffi]"]
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+            **SUBPROCESS_QUIET,
+        )
+    except Exception as exc:
+        return False, str(exc), used_now
+    output = ((result.stdout or "") + (result.stderr or "")).strip()
+    tail = "\n".join(output.splitlines()[-6:])
+    return result.returncode == 0, tail, used_now
 
 
 def is_block(exc: Exception) -> bool:
@@ -101,7 +139,9 @@ def _base_options() -> Dict:
     executable = ffmpeg_exe()
     if executable:
         options["ffmpeg_location"] = executable
-    if _COOKIE_BROWSER:
+    if _COOKIE_FILE:
+        options["cookiefile"] = _COOKIE_FILE
+    elif _COOKIE_BROWSER:
         options["cookiesfrombrowser"] = (_COOKIE_BROWSER,)
     return options
 
@@ -154,9 +194,9 @@ def fetch_metadata(url: str) -> Dict:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        if _COOKIE_BROWSER and _is_cookie_problem(exc):
+        if _COOKIE_BROWSER and not _COOKIE_FILE and _is_cookie_problem(exc):
             log.warning("Browser cookies could not be read (%s); continuing without them.", exc)
-            configure("")
+            configure("", _COOKIE_FILE)
             try:
                 with yt_dlp.YoutubeDL(_base_options() | {"skip_download": True}) as ydl:
                     info = ydl.extract_info(url, download=False)
@@ -295,11 +335,11 @@ def download(
             )
             options.pop("merge_output_format", None)
             retry = True
-        elif _COOKIE_BROWSER and _is_cookie_problem(exc):
+        elif _COOKIE_BROWSER and not _COOKIE_FILE and _is_cookie_problem(exc):
             log.warning("Browser cookies could not be read (%s); retrying without them.", exc)
             if progress:
                 progress(0.0, "browser cookies unavailable, retrying without them")
-            configure("")
+            configure("", _COOKIE_FILE)
             options.pop("cookiesfrombrowser", None)
             retry = True
 

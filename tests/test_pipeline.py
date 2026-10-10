@@ -408,7 +408,8 @@ def test_a_lasting_block_leaves_the_rest_of_the_queue_waiting(tmp_path, monkeypa
     monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
 
     jobs = [Job(url=f"https://a-video-site.example/{n}", destination=tmp_path) for n in range(5)]
-    summary = PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run(jobs)
+    options = JobOptions(make_mp3=False, transcribe=False, auto_resume=False)
+    summary = PipelineEngine(options).run(jobs)
 
     # One video tried once plus once per cooldown, then nothing more is asked.
     assert calls["count"] == len(pipeline.BLOCK_COOLDOWNS) + 1
@@ -435,3 +436,52 @@ def test_the_download_reuses_the_information_already_read(tmp_path, monkeypatch)
     PipelineEngine(JobOptions(make_mp3=False, transcribe=False)).run([job])
 
     assert seen["info"]["id"] == "ok1"
+
+
+def test_keep_trying_waits_through_a_long_block(tmp_path, monkeypatch):
+    calls = {"count": 0}
+
+    def fetch_metadata(url):
+        calls["count"] += 1
+        raise downloader.SiteBlocked("The site took the run for a robot.")
+
+    monkeypatch.setattr(downloader, "fetch_metadata", fetch_metadata)
+
+    job = Job(url="https://a-video-site.example/one", destination=tmp_path)
+    PipelineEngine(JobOptions(make_mp3=False, transcribe=False, auto_resume=True)).run([job])
+
+    expected = len(pipeline.BLOCK_COOLDOWNS) + pipeline.RESUME_ROUNDS + 1
+    assert calls["count"] == expected
+
+
+def test_a_cookies_file_is_preferred_to_the_browser(tmp_path):
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n")
+    try:
+        downloader.configure("chrome", str(cookies))
+        options = downloader._base_options()
+        assert options["cookiefile"] == str(cookies)
+        assert "cookiesfrombrowser" not in options
+
+        downloader.configure("firefox", str(tmp_path / "missing.txt"))
+        options = downloader._base_options()
+        assert "cookiefile" not in options
+        assert options["cookiesfrombrowser"] == ("firefox",)
+    finally:
+        downloader.configure("")
+
+
+def test_the_engine_is_updated_first_when_asked(tmp_path, monkeypatch, fake_download):
+    calls = []
+    monkeypatch.setattr(downloader, "update_engine", lambda: calls.append(1) or (True, "ok", True))
+    logs = []
+    options = JobOptions(make_mp3=False, transcribe=False, update_engine_first=True)
+    PipelineEngine(options, on_log=lambda level, message: logs.append(message)).run([])
+    assert calls == []  # nothing to download, nothing to update
+
+    monkeypatch.setattr(downloader, "fetch_metadata", lambda url: (_ for _ in ()).throw(
+        downloader.DownloadError("This video is private.")))
+    job = Job(url="https://a-video-site.example/one", destination=tmp_path)
+    PipelineEngine(options, on_log=lambda level, message: logs.append(message)).run([job])
+    assert calls == [1]
+    assert any("up to date" in message for message in logs)

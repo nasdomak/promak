@@ -39,7 +39,7 @@ COOKIE_BROWSERS = {
     "": "None (default)",
     "chrome": "Chrome",
     "edge": "Edge",
-    "firefox": "Firefox",
+    "firefox": "Firefox (works best on Windows)",
     "brave": "Brave",
     "opera": "Opera",
     "vivaldi": "Vivaldi",
@@ -95,7 +95,12 @@ class JobOptions:
     folder_layout: str = "sorted"     # see promak.tools.video.layout
     overwrite: bool = False
     cookies_from_browser: str = ""
+    cookies_file: str = ""            # a cookies.txt exported from a browser
     compatible_video: bool = True
+    #: when the site keeps blocking, wait and carry on instead of stopping
+    auto_resume: bool = True
+    #: update the download engine before the first video of this run
+    update_engine_first: bool = False
 
     @property
     def needs_audio_file(self) -> bool:
