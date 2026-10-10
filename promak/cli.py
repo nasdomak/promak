@@ -25,6 +25,7 @@
     python -m promak nobg     products/ --colour "#FFFFFF" --out shop/
     python -m promak record   --seconds 60 --out D:/Recordings
     python -m promak recipe   "Web photos" D:/Holiday --out D:/Web
+    python -m promak watch    D:/Scans --recipe "Searchable" --out D:/Done
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -46,7 +47,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe", "watch")
 
 
 # ------------------------------------------------------------ the engines
@@ -471,6 +472,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--list", action="store_true", help="list the saved recipes")
     p.add_argument("--quiet", action="store_true")
 
+    p = sub.add_parser("watch", help="watch a folder: every new file goes through a recipe (until Ctrl+C)")
+    p.add_argument("folder", type=Path)
+    p.add_argument("--recipe", required=True, help="the name of a recipe saved on the Recipes screen")
+    p.add_argument("--out", type=Path, required=True, help="folder for the results")
+    p.add_argument("--subfolders", action="store_true")
+    p.add_argument("--existing", action="store_true", help="also the files already there")
+    p.add_argument("--interval", type=float, default=3.0, help="seconds between two looks")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -863,6 +872,34 @@ def run_recipe_command(args) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def run_watch(args) -> int:
+    from promak.tools.recipes.engine import load_recipes
+    from promak.tools.watch import engine as e
+
+    recipes = load_recipes()
+    recipe = recipes.get(args.recipe) or next((r for n, r in recipes.items() if n.casefold() == args.recipe.casefold()), None)
+    if recipe is None:
+        print(f"[!] There is no recipe called '{args.recipe}'. Saved: {', '.join(sorted(recipes)) or 'none'}",
+              file=sys.stderr)
+        return 2
+    options = e.WatchOptions(folder=args.folder, output=args.out, recursive=args.subfolders,
+                             include_existing=args.existing)
+    problem = options.validate() or recipe.validate()
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    Path(args.out).mkdir(parents=True, exist_ok=True)
+
+    def log(level: str, message: str) -> None:
+        prefix = {"error": "[!]", "warning": "[*]"}.get(level, "[.]")
+        print(f"{prefix} {message}", file=sys.stderr if level == "error" else sys.stdout, flush=True)
+
+    print("[.] Press Ctrl+C to stop.")
+    count = e.watch_forever(options, recipe, args.interval, log)
+    print(f"[.] {count} file(s) done.")
+    return 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -890,6 +927,8 @@ def main(argv: Sequence[str]) -> int:
         return run_record(args)
     if args.command == "recipe":
         return run_recipe_command(args)
+    if args.command == "watch":
+        return run_watch(args)
     if args.command == "unzip":
         return run_unzip(args)
     return run_files(args)
