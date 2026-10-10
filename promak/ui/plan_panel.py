@@ -501,3 +501,50 @@ def select(box, value) -> None:
     """Choose the entry whose value is ``value`` (the first one if none)."""
     index = box.findData(value)
     box.setCurrentIndex(index if index >= 0 else 0)
+
+
+class ColourField(QWidget):
+    """A colour typed as #RRGGBB, with a button that opens the colour picker."""
+
+    def __init__(self, colour: str = "#000000", parent=None) -> None:
+        from PySide6.QtWidgets import QLineEdit
+
+        super().__init__(parent)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.line = QLineEdit(colour)
+        self.line.setMaxLength(7)
+        self.line.setPlaceholderText("#RRGGBB")
+        self.swatch = QPushButton()
+        self.swatch.setFixedWidth(44)
+        self.swatch.setToolTip("Pick a colour")
+        self.swatch.clicked.connect(self._pick)
+        self.line.textChanged.connect(self._paint)
+        row.addWidget(self.line, 1)
+        row.addWidget(self.swatch)
+        self._paint()
+
+    @property
+    def textChanged(self):  # noqa: N802 - mirrors QLineEdit
+        return self.line.textChanged
+
+    def text(self) -> str:
+        return self.line.text().strip()
+
+    def setText(self, value: str) -> None:  # noqa: N802 - mirrors QLineEdit
+        self.line.setText(value)
+
+    def _paint(self, *_args) -> None:
+        import re
+
+        value = self.text()
+        if re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            self.swatch.setStyleSheet(f"QPushButton {{ background-color: {value}; }}")
+
+    def _pick(self) -> None:
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QColorDialog
+
+        chosen = QColorDialog.getColor(QColor(self.text() or "#000000"), self, "Choose a colour")
+        if chosen.isValid():
+            self.setText(chosen.name().upper())

@@ -20,6 +20,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
+| **QR codes and barcodes** | QR codes for links, texts and Wi-Fi networks, and barcodes - one or a whole list, as PNG or SVG |
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
@@ -143,6 +144,18 @@ without ever going blurry.
 * Photos taken sideways come out upright; colour profiles are kept.
 * Your originals are never changed; an optional ending (`-web`) is added to
   the new names.
+
+## 4b. QR codes and barcodes
+
+* **QR codes** for a link, any text, or a **Wi-Fi network** (guests point the
+  camera and join without typing the password); error correction L to H.
+* **Barcodes**: Code 128, Code 39, EAN-13, EAN-8, UPC-A, ISBN-13, ITF; the check
+  digit is added when it is left out, and a wrong code is said, not printed.
+* **One code, or many**: one per line of a list, or one per row of a CSV file,
+  with the file names taken from another column (a product name, a table number).
+* **PNG** at the width you choose or **SVG** that stays sharp at any size, or both;
+  your colours, a transparent background, the margin scanners need.
+* A single code is drawn while you type; a list is shown before it is saved.
 
 ## 5. Audio toolbox
 
@@ -423,6 +436,8 @@ promak.bat convert "D:\Reports" --to md
 promak.bat convert prices.csv --to xlsx
 promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat clean  "D:\To share" --out "D:\Clean"
+promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
+promak.bat qr     --kind ean13 --list barcodes.txt --out "D:\Labels"
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -492,6 +507,7 @@ promak/
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
+    ├── qrcodes/           # QR codes and barcodes (engine.py, panel.py, tool.py)
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
     ├── text/              # text toolbox (engine.py, panel.py, tool.py)
     ├── renamer/           # number folders (engine.py, panel.py, tool.py)
