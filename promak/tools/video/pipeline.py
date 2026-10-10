@@ -10,6 +10,7 @@ front-end without any change.
 from __future__ import annotations
 
 import logging
+import random
 import threading
 import time
 from dataclasses import dataclass
@@ -30,6 +31,18 @@ LogCallback = Callable[[str, str], None]  # (level, message)
 
 class PipelineCancelled(Exception):
     """The whole run was stopped by the user."""
+
+
+# A long playlist fetched at full speed looks like a robot to the big
+# sites: after a handful of videos every request is answered with "sign in
+# to confirm you are not a bot".  A short, slightly irregular pause between
+# videos keeps the run looking like a person clicking through the list.
+PAUSE_BETWEEN_VIDEOS = (6.0, 15.0)
+
+# When the site blocks anyway, the block is lifted after a while: wait,
+# try the same video again, and wait longer each time.  If it still holds,
+# the rest of the queue is left waiting instead of failing one by one.
+BLOCK_COOLDOWNS = (60, 300, 900)
 
 
 # Windows refuses paths longer than 260 characters unless long paths are
@@ -98,6 +111,7 @@ class PipelineEngine:
         self.cancel_event = cancel_event or threading.Event()
         self.weights = StageWeights.for_options(options)
         self._offsets = self.weights.offsets()
+        self._info: Optional[Dict] = None
         downloader.configure(options.cookies_from_browser)
 
     # ------------------------------------------------------------- helpers
@@ -126,13 +140,58 @@ class PipelineEngine:
         return report
 
     # ---------------------------------------------------------------- main
+    def _wait(self, job: Job, seconds: float, reason: str) -> None:
+        """Pause, counting down on the job's row; stopping the run cuts it short."""
+        end = time.monotonic() + seconds
+        while not self.cancel_event.is_set():
+            left = end - time.monotonic()
+            if left <= 0:
+                return
+            job.message = f"{reason}, {int(left + 0.999)}s"
+            self._emit(job)
+            self.cancel_event.wait(min(1.0, left))
+        raise PipelineCancelled()
+
+    def _run_with_cooldowns(self, job: Job) -> None:
+        """Run one job, waiting out a block from the site before giving up."""
+        destination = job.destination
+        for attempt, cooldown in enumerate((*BLOCK_COOLDOWNS, None), start=1):
+            try:
+                self._run_job(job)
+                return
+            except downloader.SiteBlocked:
+                if job.layout is not None:
+                    tidy_empty_dirs(job.layout)
+                job.destination = destination
+                job.layout = None
+                if cooldown is None:
+                    raise
+                minutes = cooldown // 60
+                self._log(
+                    "warning",
+                    f"The site is refusing requests (it suspects a robot). Waiting "
+                    f"{minutes or cooldown} {'min' if minutes else 's'} before trying "
+                    f"'{job.display_name}' again (attempt {attempt + 1} of {len(BLOCK_COOLDOWNS) + 1}).",
+                )
+                job.stage = Stage.QUEUED
+                job.progress = 0.0
+                job.overall = 0.0
+                self._wait(job, cooldown, "the site asked to slow down, waiting")
+
     def run(self, jobs: List[Job]) -> Dict[str, int]:
-        summary = {"done": 0, "failed": 0, "cancelled": 0}
+        summary = {"done": 0, "failed": 0, "cancelled": 0, "postponed": 0}
         started = time.time()
         pending = [job for job in jobs if not job.stage.is_final]
         self._log("info", f"Starting {len(pending)} job(s).")
+        blocked = False
 
         for index, job in enumerate(pending, start=1):
+            if blocked:
+                job.stage = Stage.QUEUED
+                job.message = "Waiting: the site is blocking requests, press Start later"
+                summary["postponed"] += 1
+                self._emit(job)
+                continue
             if self.cancel_event.is_set():
                 job.stage = Stage.CANCELLED
                 job.message = "Cancelled before starting"
@@ -142,7 +201,11 @@ class PipelineEngine:
 
             self._log("info", f"[{index}/{len(pending)}] {job.url}")
             try:
-                self._run_job(job)
+                if index > 1:
+                    low, high = PAUSE_BETWEEN_VIDEOS
+                    if high > 0:
+                        self._wait(job, random.uniform(low, high), "short pause between videos")
+                self._run_with_cooldowns(job)
                 job.stage = Stage.DONE
                 job.progress = 100.0
                 job.overall = 100.0
@@ -159,6 +222,18 @@ class PipelineEngine:
                 job.message = "Cancelled"
                 summary["cancelled"] += 1
                 self._log("warning", f"Cancelled: {job.display_name}")
+            except downloader.SiteBlocked as exc:
+                # Not this video's fault: it stays in the queue with the rest.
+                blocked = True
+                job.reset()
+                job.message = "Waiting: the site is blocking requests, press Start later"
+                summary["postponed"] += 1
+                self._log(
+                    "error",
+                    f"The site is still blocking after waiting ({exc}). The run stops here: "
+                    f"the remaining videos stay in the queue. Press Start again in an hour or "
+                    f"so, or set \"Use cookies from\" to a browser where you are logged in.",
+                )
             except Exception as exc:
                 job.stage = Stage.FAILED
                 job.error = str(exc)
@@ -170,10 +245,11 @@ class PipelineEngine:
                 self._emit(job)
 
         elapsed = int(time.time() - started)
+        postponed = f", {summary['postponed']} still waiting" if summary["postponed"] else ""
         self._log(
             "info",
             f"Run finished in {elapsed // 60}m {elapsed % 60}s - "
-            f"{summary['done']} done, {summary['failed']} failed, {summary['cancelled']} cancelled.",
+            f"{summary['done']} done, {summary['failed']} failed, {summary['cancelled']} cancelled{postponed}.",
         )
         return summary
 
@@ -188,6 +264,7 @@ class PipelineEngine:
         report = self._stage_progress(job, "metadata")
         report(10.0, "reading video information")
         info = downloader.fetch_metadata(job.url)
+        self._info = info
         job.title = info.get("title") or job.url
         job.duration = float(info.get("duration") or 0.0)
         base_name = downloader.build_base_name(info)
@@ -321,6 +398,9 @@ class PipelineEngine:
             compatible=self.options.compatible_video,
             progress=report,
             cancel_event=self.cancel_event,
+            # A forced second download reads the page afresh: the first
+            # attempt's stream links may be the reason it came out broken.
+            info=None if force else self._info,
         )
 
     def _inspect_download(self, media_path: Path, job: Job) -> Optional[str]:

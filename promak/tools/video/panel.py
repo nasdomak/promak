@@ -933,7 +933,13 @@ class VideoPanel(QWidget):
             "Run finished",
             f"Completed: {summary.get('done', 0)}\n"
             f"Failed: {summary.get('failed', 0)}\n"
-            f"Cancelled: {summary.get('cancelled', 0)}",
+            f"Cancelled: {summary.get('cancelled', 0)}"
+            + (
+                f"\nStill waiting: {summary['postponed']} (the site was blocking requests; "
+                "press Start again later to continue)"
+                if summary.get("postponed")
+                else ""
+            ),
         )
 
     def _log(self, level: str, message: str) -> None:
