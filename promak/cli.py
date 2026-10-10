@@ -26,6 +26,7 @@
     python -m promak record   --seconds 60 --out D:/Recordings
     python -m promak recipe   "Web photos" D:/Holiday --out D:/Web
     python -m promak watch    D:/Scans --recipe "Searchable" --out D:/Done
+    python -m promak translate notes/ --from it --to en
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -47,7 +48,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe", "watch")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe", "watch", "translate")
 
 
 # ------------------------------------------------------------ the engines
@@ -217,11 +218,22 @@ def _nobg(args):
     return options, e.BackgroundBatch
 
 
+def _translate(args):
+    from promak.tools.translate.engine import TranslateBatch, TranslateOptions
+
+    options = TranslateOptions(source=args.source, target=args.target, suffix=args.suffix, overwrite=args.overwrite)
+    return options, TranslateBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "translate":
+        from promak.tools.translate.engine import ACCEPTED_EXTENSIONS as TRANSLATE_EXTENSIONS
+
+        return TRANSLATE_EXTENSIONS
     if command == "clean":
         from promak.tools.cleanmeta.engine import ACCEPTED_EXTENSIONS as CLEAN_EXTENSIONS
 
@@ -254,7 +266,7 @@ BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
     "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
     "gif": _gif, "collage": _collage, "subtitles": _subtitles,
-    "silence": _silence, "nobg": _nobg,
+    "silence": _silence, "nobg": _nobg, "translate": _translate,
 }
 
 
@@ -479,6 +491,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--subfolders", action="store_true")
     p.add_argument("--existing", action="store_true", help="also the files already there")
     p.add_argument("--interval", type=float, default=3.0, help="seconds between two looks")
+
+    p = file_tool("translate", "translate text files and subtitles offline (language packs downloaded once)")
+    p.add_argument("--from", dest="source", default="it", help="language code, e.g. it")
+    p.add_argument("--to", dest="target", default="en", help="language code, e.g. en")
+    p.add_argument("--suffix", default="")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)

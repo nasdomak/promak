@@ -24,6 +24,7 @@ BUILT_IN_TOOLS = (
     "sheetmerge", "cleanmeta", "qrcodes", "gifcollage",
     "subtitles", "silence", "archives", "compare",
     "shred", "background", "screenrec", "recipes", "watch",
+    "translate",
 )
 
 

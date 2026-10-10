@@ -73,6 +73,8 @@ STEP_KINDS: List[StepKind] = [
              "promak.tools.ocr.engine:OcrBatch", "promak.tools.ocr.engine:ACCEPTED_EXTENSIONS"),
     StepKind("docconvert", "Convert documents", "promak.tools.docconvert.engine:ConvertOptions",
              "promak.tools.docconvert.engine:ConvertBatch", "promak.tools.docconvert.engine:ACCEPTED_EXTENSIONS"),
+    StepKind("translate", "Translate (offline)", "promak.tools.translate.engine:TranslateOptions",
+             "promak.tools.translate.engine:TranslateBatch", "promak.tools.translate.engine:ACCEPTED_EXTENSIONS"),
     StepKind("pdf", "PDF toolbox", "promak.tools.pdf.engine:PdfOptions",
              "promak.tools.pdf.engine:PdfBatch", "promak.tools.pdf.engine:PDF_EXTENSIONS"),
 ]

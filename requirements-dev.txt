@@ -19,4 +19,6 @@ segno>=1.5
 python-barcode>=0.15
 pyzipper>=0.3.6
 py7zr>=0.20
+sentencepiece>=0.2
+ctranslate2>=4.0
 pytest>=7.0
