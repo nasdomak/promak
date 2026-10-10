@@ -14,6 +14,8 @@
     python -m promak sheets   jan.xlsx feb.csv --name Year --drop-duplicates
     python -m promak clean    holiday/ --out to-share/
     python -m promak qr       "https://example.org" --out codes/ --svg
+    python -m promak gif      frames/ --frame-ms 400 --name Demo
+    python -m promak collage  holiday/ --columns 3 --spacing 20
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -35,7 +37,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage")
 
 
 # ------------------------------------------------------------ the engines
@@ -157,6 +159,24 @@ def _clean(args):
     return options, CleanBatch
 
 
+def _gif(args):
+    from promak.tools.gifcollage import engine as e
+
+    options = e.GifOptions(job=e.WEBP if getattr(args, "webp", False) else e.GIF, frame_ms=args.frame_ms,
+                           loops=args.loops, size=args.size, background=args.background, name=args.name,
+                           overwrite=args.overwrite)
+    return options, e.GifCollageBatch
+
+
+def _collage(args):
+    from promak.tools.gifcollage import engine as e
+
+    options = e.GifOptions(job=e.COLLAGE, size=args.size, columns=args.columns, spacing=args.spacing,
+                           background=args.background, fit=e.FIT_FILL if args.fill else e.FIT_WHOLE,
+                           collage_format="PNG" if args.png else "JPEG", name=args.name, overwrite=args.overwrite)
+    return options, e.GifCollageBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
@@ -184,6 +204,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
         return ACCEPTED_EXTENSIONS if getattr(args, "do", "") == MERGE else PDF_EXTENSIONS
     return {
         "shrink": RASTER_EXTENSIONS, "resize": RASTER_EXTENSIONS, "vector": RASTER_EXTENSIONS,
+        "gif": RASTER_EXTENSIONS, "collage": RASTER_EXTENSIONS,
         "audio": AUDIO_EXTENSIONS + VIDEO_EXTENSIONS, "video": VIDEO_EXTENSIONS, "text": TEXT_EXTENSIONS,
     }[command]
 
@@ -191,6 +212,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
     "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
+    "gif": _gif, "collage": _collage,
 }
 
 
@@ -318,6 +340,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--png", action="store_true")
     p.add_argument("--out", type=Path, help="destination folder (default: here)")
     p.add_argument("--overwrite", action="store_true")
+
+    p = file_tool("gif", "pictures into an animated GIF (or WEBP), in the order given")
+    p.add_argument("--frame-ms", type=int, default=600, help="how long each picture is shown")
+    p.add_argument("--loops", type=int, default=0, help="0 = for ever")
+    p.add_argument("--size", type=int, default=800, help="longest side in pixels")
+    p.add_argument("--background", default="#FFFFFF")
+    p.add_argument("--webp", action="store_true", help="animated WEBP instead of GIF")
+    p.add_argument("--name", default="")
+
+    p = file_tool("collage", "pictures into a collage grid")
+    p.add_argument("--columns", type=int, default=0, help="0 = worked out")
+    p.add_argument("--size", type=int, default=600, help="size of a cell in pixels")
+    p.add_argument("--spacing", type=int, default=12)
+    p.add_argument("--background", default="#FFFFFF")
+    p.add_argument("--fill", action="store_true", help="fill the cells (edges trimmed)")
+    p.add_argument("--png", action="store_true", help="PNG instead of JPG")
+    p.add_argument("--name", default="")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)

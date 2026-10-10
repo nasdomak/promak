@@ -20,6 +20,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
+| **GIF and collage** | Turns a series of pictures into an animated GIF or WEBP, or lays them out in a collage grid |
 | **QR codes and barcodes** | QR codes for links, texts and Wi-Fi networks, and barcodes - one or a whole list, as PNG or SVG |
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
@@ -144,6 +145,16 @@ without ever going blurry.
 * Photos taken sideways come out upright; colour profiles are kept.
 * Your originals are never changed; an optional ending (`-web`) is added to
   the new names.
+
+## 4a. GIF and collage
+
+* **Animated GIF** (plays everywhere) or **animated WEBP** (smaller, every colour):
+  the pictures in queue order - *Move up* / *Move down* - each shown for the time
+  you choose, looping for ever or a set number of times. Pictures of other sizes
+  are fitted inside the first one's frame.
+* **Collage**: a grid with the columns you choose (or worked out), the spacing
+  between and around the pictures, the background colour, and each picture
+  whole inside its cell or filling it. Saved as JPG or PNG.
 
 ## 4b. QR codes and barcodes
 
@@ -436,6 +447,8 @@ promak.bat convert "D:\Reports" --to md
 promak.bat convert prices.csv --to xlsx
 promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat clean  "D:\To share" --out "D:\Clean"
+promak.bat gif    "D:\Frames" --frame-ms 400 --name "Demo"
+promak.bat collage "D:\Holiday" --columns 3 --spacing 20 --fill
 promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
 promak.bat qr     --kind ean13 --list barcodes.txt --out "D:\Labels"
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
@@ -507,6 +520,7 @@ promak/
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
+    ├── gifcollage/        # GIF and collage (engine.py, panel.py, tool.py)
     ├── qrcodes/           # QR codes and barcodes (engine.py, panel.py, tool.py)
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
     ├── text/              # text toolbox (engine.py, panel.py, tool.py)

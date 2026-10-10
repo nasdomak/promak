@@ -183,3 +183,81 @@ class BatchEngine:
         if code == errno.ENOENT:
             return f"This path does not exist any more: {target}"
         return f"The file could not be written: {exc}"
+
+
+class CombineEngine(BatchEngine):
+    """A queue whose files all go into one result (a merged table, a GIF...).
+
+    Subclasses implement :meth:`read_one` (called for every file, in queue
+    order; whatever it returns is kept) and :meth:`write_all` (called once
+    with what was read; returns the file written).  A file that cannot be
+    read is marked failed and the others still go in.
+    """
+
+    def run(self, jobs: List[FileJob]) -> Dict[str, int]:
+        summary = {"done": 0, "failed": 0, "cancelled": 0, "skipped": 0}
+        pending = [job for job in jobs if not job.stage.is_final]
+        self._log("info", f"Putting {len(pending)} {self.what} together.")
+        read: List[tuple] = []
+        for index, job in enumerate(pending, start=1):
+            if self.cancel_event.is_set():
+                job.stage, job.message = FileStage.CANCELLED, "Cancelled"
+                summary["cancelled"] += 1
+                self.on_update(job)
+                continue
+            job.stage, job.progress, job.message, job.error = FileStage.WORKING, 40.0, "reading", ""
+            self.on_update(job)
+            try:
+                self.prepare(job)
+                read.append((job, self.read_one(job)))
+                self._log("info", f"[{index}/{len(pending)}] {job.display_name}")
+            except BatchCancelled:
+                job.stage, job.message = FileStage.CANCELLED, "Cancelled"
+                summary["cancelled"] += 1
+            except ImageToolError as exc:
+                job.stage, job.error = FileStage.FAILED, str(exc)
+                summary["failed"] += 1
+                self._log("error", f"Failed: {job.display_name} - {exc}")
+            except Exception as exc:  # never lose the other files for one
+                job.stage, job.error = FileStage.FAILED, f"Unexpected problem: {exc}"
+                summary["failed"] += 1
+                self._log("error", f"Failed: {job.display_name} - {exc}")
+                log.debug("Read failure detail", exc_info=True)
+            self.on_update(job)
+        if not read or self.cancel_event.is_set():
+            return summary
+        try:
+            target = self.write_all(read)
+        except (OSError, ImageToolError) as exc:
+            message = self.explain_os_error(exc, read[0][0]) if isinstance(exc, OSError) else str(exc)
+            for job, _data in read:
+                job.stage, job.error = FileStage.FAILED, message
+                summary["failed"] += 1
+                self.on_update(job)
+            self._log("error", f"The result could not be written: {message}")
+            return summary
+        size = target.stat().st_size
+        for job, _data in read:
+            job.stage, job.progress, job.output, job.output_bytes = FileStage.DONE, 100.0, target, size
+            job.message = f"in {target.name}"
+            summary["done"] += 1
+            self.on_update(job)
+        self._log("info", f"Written: {target}")
+        return summary
+
+    def read_one(self, job: FileJob):
+        raise NotImplementedError
+
+    def write_all(self, read: List[tuple]) -> Path:
+        raise NotImplementedError
+
+    @staticmethod
+    def result_path(first: FileJob, name: str, default_ending: str, extension: str, overwrite: bool) -> Path:
+        """``<first file's folder>/<name or "<first file> - <ending>"><extension>``, never on top of anything."""
+        from promak.core.paths import safe_filename, unique_path
+
+        stem = safe_filename(name.strip() or f"{first.source.stem} - {default_ending}", fallback=default_ending)
+        target = first.destination / f"{stem}{extension}"
+        if target.exists() and not overwrite:
+            target = unique_path(target)
+        return target
