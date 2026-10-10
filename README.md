@@ -35,6 +35,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Find duplicates** | Finds exact copies and similar pictures, keeps the best of each group, sends the others to the Recycle Bin or a folder |
 | **Sort photos by date** | Moves or copies photos and videos into `2026/07 - July` folders by the date they were taken, with a preview and an undo |
 | **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
+| **Translate (offline)** | Translates text files and subtitles on this computer with free language packs, downloaded once |
 | **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
 | **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
 | **Remove hidden data** | Shows and removes the GPS position, camera and author data hidden in photos, PDF and Office files |
@@ -432,6 +433,20 @@ Before a photo or a document is shared, see what it tells about you:
   system) when one of them is installed - Promak asks it in the background.
   When neither is there the screen says so.
 
+## 10b. Translate (offline)
+
+* Text files, Markdown and subtitles (**SRT, VTT: the time codes are kept**) are
+  translated on this computer - handy with the video downloader's transcripts.
+* The free language packs of [Argos Translate](https://www.argosopentech.com/)
+  are used: each one (about 100 MB) is **downloaded once**, the first time a
+  direction is needed, into Promak's data folder; after that nothing is sent
+  anywhere. When no pack goes straight between two languages, English is used in
+  between (Italian -> English -> German).
+* The packs are run by CTranslate2 and SentencePiece - the full Argos program
+  would bring several gigabytes of machine-learning libraries that are not needed.
+* Machine translation: good for understanding and first drafts; have important
+  texts checked by a person.
+
 ## 11. Merge spreadsheets
 
 ```
@@ -595,6 +610,7 @@ promak.bat zip    "D:\Project" --to "D:\Project.7z" --password "****"
 promak.bat unzip  "D:\Downloads\photos.zip" --to "D:\Photos"         (or --list)
 promak.bat compare "D:\Photos" "E:\Backup\Photos" --copy left-to-right --yes
 promak.bat shred  "D:\Old scans" --yes             (without --yes: only the list)
+promak.bat translate "D:\Transcripts" --from it --to en
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -685,7 +701,8 @@ promak/
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)
-    └── sheetmerge/        # merge spreadsheets (engine.py, panel.py, tool.py)
+    ├── sheetmerge/        # merge spreadsheets (engine.py, panel.py, tool.py)
+    └── translate/         # offline translation (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a

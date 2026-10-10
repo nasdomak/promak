@@ -43,6 +43,8 @@ dependencies = [
     "pyzipper>=0.3.6",
     "py7zr>=0.20",
     "rembg>=2.0.50",
+    "sentencepiece>=0.2",
+    "ctranslate2>=4.0",
 ]
 
 [project.optional-dependencies]

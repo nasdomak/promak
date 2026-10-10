@@ -316,6 +316,8 @@ TOOL_COMPONENTS = {
     "barcode": ("python-barcode", "python-barcode", "barcode", "making barcodes"),
     "pyzipper": ("pyzipper", "pyzipper", "pyzipper", "ZIP archives with an AES password"),
     "py7zr": ("py7zr", "py7zr", "py7zr", "7z archives"),
+    "ctranslate2": ("CTranslate2", "ctranslate2", "ctranslate2", "running the translation packs"),
+    "sentencepiece": ("SentencePiece", "sentencepiece", "sentencepiece", "cutting text for the translation packs"),
     "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
     "rembg": ("rembg", "rembg", "rembg", "removing the background of pictures"),
     "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
