@@ -22,6 +22,7 @@
     python -m promak unzip    D:/Downloads/photos.zip --to D:/Photos
     python -m promak compare  D:/Photos E:/Backup --copy left-to-right --yes
     python -m promak shred    "D:/Old scans" --yes
+    python -m promak nobg     products/ --colour "#FFFFFF" --out shop/
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -43,7 +44,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg")
 
 
 # ------------------------------------------------------------ the engines
@@ -202,6 +203,17 @@ def _silence(args):
     return options, SilenceBatch
 
 
+def _nobg(args):
+    from promak.tools.background import engine as e
+
+    model = {"general": "isnet-general-use", "quick": "u2netp", "people": "u2net_human_seg"}[args.model]
+    options = e.BackgroundOptions(model=model, background=e.COLOUR if args.colour else e.TRANSPARENT,
+                                  colour=args.colour or "#FFFFFF", colour_format="PNG" if args.png else "JPEG",
+                                  fine_edges=args.fine_edges, crop=args.crop, suffix=args.suffix,
+                                  overwrite=args.overwrite)
+    return options, e.BackgroundBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
@@ -229,7 +241,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
         return ACCEPTED_EXTENSIONS if getattr(args, "do", "") == MERGE else PDF_EXTENSIONS
     return {
         "shrink": RASTER_EXTENSIONS, "resize": RASTER_EXTENSIONS, "vector": RASTER_EXTENSIONS,
-        "gif": RASTER_EXTENSIONS, "collage": RASTER_EXTENSIONS,
+        "gif": RASTER_EXTENSIONS, "collage": RASTER_EXTENSIONS, "nobg": RASTER_EXTENSIONS,
         "audio": AUDIO_EXTENSIONS + VIDEO_EXTENSIONS, "video": VIDEO_EXTENSIONS, "text": TEXT_EXTENSIONS,
         "subtitles": VIDEO_EXTENSIONS, "silence": AUDIO_EXTENSIONS + VIDEO_EXTENSIONS,
     }[command]
@@ -239,7 +251,7 @@ BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
     "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
     "gif": _gif, "collage": _collage, "subtitles": _subtitles,
-    "silence": _silence,
+    "silence": _silence, "nobg": _nobg,
 }
 
 
@@ -433,6 +445,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--passes", type=int, choices=(1, 3), default=1)
     p.add_argument("--keep-folders", action="store_true", help="empty the folders but keep them")
     p.add_argument("--yes", action="store_true", help="really destroy; without it only the list is printed")
+
+    p = file_tool("nobg", "remove the background of pictures (the model is downloaded once)")
+    p.add_argument("--model", choices=("general", "quick", "people"), default="general")
+    p.add_argument("--colour", default="", help="a solid colour instead of transparent, e.g. #FFFFFF")
+    p.add_argument("--png", action="store_true", help="with --colour: PNG instead of JPG")
+    p.add_argument("--fine-edges", action="store_true", help="better hair and fur, slower")
+    p.add_argument("--crop", action="store_true", help="trim to the subject")
+    p.add_argument("--suffix", default="-no-background")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)

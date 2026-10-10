@@ -317,6 +317,7 @@ TOOL_COMPONENTS = {
     "pyzipper": ("pyzipper", "pyzipper", "pyzipper", "ZIP archives with an AES password"),
     "py7zr": ("py7zr", "py7zr", "py7zr", "7z archives"),
     "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
+    "rembg": ("rembg", "rembg", "rembg", "removing the background of pictures"),
     "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
 }
 

@@ -22,6 +22,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
+| **Remove background** | Cuts out people and products: transparent PNG or a solid colour, on this computer |
 | **GIF and collage** | Turns a series of pictures into an animated GIF or WEBP, or lays them out in a collage grid |
 | **QR codes and barcodes** | QR codes for links, texts and Wi-Fi networks, and barcodes - one or a whole list, as PNG or SVG |
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
@@ -171,6 +172,17 @@ without ever going blurry.
 * Photos taken sideways come out upright; colour profiles are kept.
 * Your originals are never changed; an optional ending (`-web`) is added to
   the new names.
+
+## 4. Remove the background
+
+* A neural network ([rembg](https://github.com/danielgatis/rembg)) finds the
+  person, product or animal and makes everything behind it **transparent**
+  (PNG) or **a solid colour** (JPG or PNG) - for shop photos, ID pictures, slides.
+* Three models: *General* (best, about 170 MB), *Quick and small* (about 5 MB)
+  and *People and portraits*. The model is **downloaded once**, the first time,
+  into Promak's data folder; after that it works offline and nothing leaves the computer.
+* Finer edges for hair and fur, and trimming the picture to the subject, on request.
+* Before and after side by side; the originals are never changed.
 
 ## 4a. GIF and collage
 
@@ -449,6 +461,8 @@ pip install -r requirements.txt
 python -m promak
 ```
 
+> The first background removal downloads its model too (5 to 170 MB, as chosen).
+>
 > The first transcription downloads the speech model (about 480 MB for the
 > default `small` model). It is stored in your user data folder and reused
 > afterwards.
@@ -515,6 +529,7 @@ promak.bat sheets "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat clean  "D:\To share" --out "D:\Clean"
 promak.bat subtitles "D:\Lessons" --size large --box --out "D:\Subtitled"
 promak.bat silence "D:\Lectures" --level -35 --shortest 0.8 --out "D:\Shorter"
+promak.bat nobg   "D:\Products" --colour "#FFFFFF" --out "D:\Shop"
 promak.bat gif    "D:\Frames" --frame-ms 400 --name "Demo"
 promak.bat collage "D:\Holiday" --columns 3 --spacing 20 --fill
 promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
@@ -594,6 +609,7 @@ promak/
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
+    ├── background/        # remove background (engine.py, panel.py, tool.py)
     ├── gifcollage/        # GIF and collage (engine.py, panel.py, tool.py)
     ├── qrcodes/           # QR codes and barcodes (engine.py, panel.py, tool.py)
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
