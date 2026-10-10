@@ -313,3 +313,29 @@ def test_renamer_screen_previews_and_renames(qapp, tmp_path, monkeypatch):
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def test_renamer_custom_code_and_saved_codes(qapp, tmp_path):
+    from promak.tools.renamer import panel as renamer_module
+    from promak.tools.renamer.engine import STYLE_CUSTOM
+
+    root = tmp_path / "jobs"
+    for name in ("Kitchen", "Garden"):
+        (root / name).mkdir(parents=True)
+    page = renamer_module.RenamerPanel()
+    try:
+        page.set_folder(root)
+        page.style_combo.setCurrentIndex(page.style_combo.findData(STYLE_CUSTOM))
+        page.pattern_input.setText("JOB-{n:3} {name:upper}")
+        assert page.table.item(0, 1).text() == "JOB-001 GARDEN"
+        page._save_code()
+        assert page.saved_codes() == ["JOB-{n:3} {name:upper}"]
+        page.pattern_input.setText("{n} {nope}")
+        assert not page.start_button.isEnabled()
+        assert "nope" in page.summary_label.text()
+        page.saved_combo.setCurrentIndex(page.saved_combo.findData("JOB-{n:3} {name:upper}"))
+        page._forget_code()
+        assert page.saved_codes() == []
+    finally:
+        page.deleteLater()
+        qapp.processEvents()

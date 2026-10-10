@@ -49,13 +49,43 @@ STYLE_NUMBER_NAME = "number_name"
 STYLE_NAME_NUMBER = "name_number"
 STYLE_NUMBER_ONLY = "number_only"
 STYLE_TEXT_NUMBER = "text_number"
+STYLE_CUSTOM = "custom"
 
 STYLES = [
     ("Number, then the old name   (01 - Holiday)", STYLE_NUMBER_NAME),
     ("Old name, then the number   (Holiday - 01)", STYLE_NAME_NUMBER),
     ("Number only   (01)", STYLE_NUMBER_ONLY),
     ("My text and the number   (Project 01)", STYLE_TEXT_NUMBER),
+    ("My own code   (PRJ-2026-001 Holiday)", STYLE_CUSTOM),
 ]
+
+#: the pieces a custom code can be built from, as shown to the user
+CODE_PIECES = [
+    ("{n}", "the number (digits as set below); {n:3} always 3 digits: 001"),
+    ("{name}", "the old name (without its old number, if that box is ticked)"),
+    ("{original}", "the old name exactly as it is"),
+    ("{name:upper}", "the old name in CAPITALS; also :lower and :title"),
+    ("{letter}", "A, B, C ... Z, AA; {letter:lower} for a, b, c"),
+    ("{roman}", "I, II, III, IV ...; {roman:lower} for i, ii, iii"),
+    ("{date}", "the date the folder was last changed: 2026-10-10"),
+    ("{year} {month} {day}", "the same date in pieces: 2026 10 10"),
+    ("{today}", "today's date: 2026-10-10"),
+    ("{parent}", "the name of the folder that holds them"),
+    ("{total}", "how many folders are being numbered"),
+]
+
+CODE_EXAMPLES = [
+    "{n} - {name}",
+    "PRJ-{year}-{n:3} {name}",
+    "{date} {name}",
+    "{parent} {n}",
+    "{letter}. {name:upper}",
+    "Chapter {roman} - {name}",
+]
+
+_PIECE = re.compile(r"\{(\w+)(?::([^{}]*))?\}")
+_KNOWN_PIECES = {"n", "name", "original", "letter", "roman", "date", "year", "month", "day",
+                 "today", "parent", "total"}
 
 #: a number already at the start of a name, with what separates it
 _LEADING_NUMBER = re.compile(r"^\s*\d+\s*[-_.)\]]*\s*")
@@ -78,6 +108,7 @@ class RenameOptions:
     descending: bool = False
     drop_old_number: bool = True    # "03 - Holiday" becomes "01 - Holiday", not "01 - 03 - Holiday"
     include_hidden: bool = False
+    pattern: str = "{n} - {name}"   # used by STYLE_CUSTOM
 
     def validate(self) -> Optional[str]:
         if self.style not in {value for _label, value in STYLES}:
@@ -86,6 +117,10 @@ class RenameOptions:
             return "The step between two numbers cannot be zero."
         if self.style == STYLE_TEXT_NUMBER and not self.text.strip():
             return "Type the text that goes before the number."
+        if self.style == STYLE_CUSTOM:
+            problem = check_pattern(self.pattern)
+            if problem:
+                return problem
         if re.search(r'[<>:"/\\|?*]', self.separator + self.text):
             return 'The text and the separator cannot contain  < > : " / \\ | ? *'
         return None
@@ -199,14 +234,100 @@ def new_name_for(old_name: str, number: str, options: RenameOptions) -> str:
     return safe_filename(name, fallback=number)
 
 
+# ------------------------------------------------------------ custom code
+def check_pattern(pattern: str) -> Optional[str]:
+    """Say what is wrong with a custom code, or None when it is usable."""
+    if not pattern.strip():
+        return "Type your code, for example  {n} - {name}"
+    unknown = sorted({m.group(1) for m in _PIECE.finditer(pattern)} - _KNOWN_PIECES)
+    if unknown:
+        return "Unknown piece in the code: " + ", ".join("{%s}" % u for u in unknown)
+    for match in _PIECE.finditer(pattern):
+        key, modifier = match.group(1), match.group(2)
+        if key == "n" and modifier and not modifier.isdigit():
+            return "{n:...} takes a number of digits, for example {n:3}"
+    if re.search(r'[<>:"/\\|?*]', _PIECE.sub("", pattern)):
+        return 'The code cannot contain  < > : " / \\ | ? *'
+    if not _PIECE.search(pattern):
+        return "The code needs at least one piece such as {n}, or every folder would get the same name."
+    return None
+
+
+def letters(value: int, lower: bool = False) -> str:
+    """1 -> A, 26 -> Z, 27 -> AA, like spreadsheet columns."""
+    if value < 1:
+        return str(value)
+    text = ""
+    while value:
+        value, rest = divmod(value - 1, 26)
+        text = chr(65 + rest) + text
+    return text.lower() if lower else text
+
+
+def roman(value: int, lower: bool = False) -> str:
+    if not 0 < value < 4000:
+        return str(value)
+    parts = ((1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+             (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"))
+    text = ""
+    for amount, letter in parts:
+        count, value = divmod(value, amount)
+        text += letter * count
+    return text.lower() if lower else text
+
+
+def _changed(folder: Path) -> datetime:
+    try:
+        return datetime.fromtimestamp(folder.stat().st_mtime)
+    except OSError:
+        return datetime.now()
+
+
+def name_from_pattern(folder: Path, value: int, digits: int, total: int, options: RenameOptions) -> str:
+    """Fill the custom code for one folder."""
+    base = folder.name
+    if options.drop_old_number:
+        base = _LEADING_NUMBER.sub("", base) or base
+    when = _changed(folder)
+
+    def fill(match) -> str:
+        key, modifier = match.group(1), (match.group(2) or "").strip().lower()
+        if key == "n":
+            return number_text(value, int(modifier) if modifier.isdigit() else digits)
+        if key in ("name", "original"):
+            text = base if key == "name" else folder.name
+            return {"upper": text.upper(), "lower": text.lower(), "title": text.title()}.get(modifier, text)
+        if key == "letter":
+            return letters(value, modifier == "lower")
+        if key == "roman":
+            return roman(value, modifier == "lower")
+        if key == "date":
+            return when.strftime("%Y-%m-%d")
+        if key in ("year", "month", "day"):
+            return when.strftime({"year": "%Y", "month": "%m", "day": "%d"}[key])
+        if key == "today":
+            return datetime.now().strftime("%Y-%m-%d")
+        if key == "parent":
+            return folder.parent.name
+        if key == "total":
+            return str(total)
+        return match.group(0)
+
+    return safe_filename(_PIECE.sub(fill, options.pattern), fallback=number_text(value, digits))
+
+
 def plan_renames(folders: Sequence[Path], options: RenameOptions) -> List[Rename]:
     """Work out every new name; problems are attached, nothing is renamed."""
     folders = [Path(p) for p in folders]
     digits = options.digits or auto_digits(len(folders), options)
     plan: List[Rename] = []
     for index, folder in enumerate(folders):
-        number = number_text(options.start + index * options.step, digits)
-        plan.append(Rename(folder, new_name_for(folder.name, number, options)))
+        value = options.start + index * options.step
+        if options.style == STYLE_CUSTOM:
+            new_name = name_from_pattern(folder, value, digits, len(folders), options)
+        else:
+            new_name = new_name_for(folder.name, number_text(value, digits), options)
+        plan.append(Rename(folder, new_name))
 
     # two folders must not end up with the same name (Windows ignores case)
     seen = {}
