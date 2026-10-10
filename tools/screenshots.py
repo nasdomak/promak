@@ -74,6 +74,11 @@ def _sample_documents(folder: Path) -> list:
         path = folder / name
         sheets[0].save(path, "PDF", save_all=True, append_images=sheets[1:])
         paths.append(path)
+    # stand-ins for the sound and video tools: their names are all the queue shows
+    for name in ("Lesson 1 - Introduction.mp4", "Lesson 2 - Practice.mp4", "Interview.mp3"):
+        (folder / name).write_bytes(b"\0" * 2048)
+        paths.append(folder / name)
+    (folder / "Lesson 1 - Introduction.srt").write_text("1\n00:00:00,000 --> 00:00:02,000\nHello\n", encoding="utf-8")
     notes = folder / "Meeting notes.md"
     notes.write_text("# Meeting\n\n- Budget\n- Dates\n", encoding="utf-8")
     prices = folder / "Price list.csv"
