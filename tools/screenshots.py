@@ -120,7 +120,8 @@ def main(argv=None) -> int:
                 (albums / name).mkdir(parents=True, exist_ok=True)
             page.set_folder(albums)
         elif hasattr(page, "add_files"):
-            _fill_files(page, pictures, destination)
+            accepted = tuple(getattr(page, "ACCEPTED_EXTENSIONS", ()))
+            _fill_files(page, [p for p in pictures if p.suffix in accepted], destination)
 
     taken = []
     for theme in ("light", "dark"):

@@ -62,6 +62,7 @@ class FileQueuePanel(QWidget):
     ACCEPTED_EXTENSIONS: Sequence[str] = RASTER_EXTENSIONS
     EXTRA_COLUMNS: Sequence[str] = ()
     START_LABEL = "Start"
+    ITEM_WORD = "pictures"          # used in the file dialogs: "Choose pictures"
     RUNNING_LABEL = "Working..."
 
     def __init__(self, parent=None) -> None:
@@ -135,7 +136,7 @@ class FileQueuePanel(QWidget):
         add_files = QPushButton("Add files...")
         add_files.clicked.connect(self._browse_files)
         add_folder = QPushButton("Add a folder...")
-        add_folder.setToolTip("Add every supported picture directly inside a folder.")
+        add_folder.setToolTip("Add every supported file directly inside a folder.")
         add_folder.clicked.connect(self._browse_folder)
         self.count_label.setWordWrap(True)
         files_layout.addWidget(self.count_label)
@@ -330,18 +331,18 @@ class FileQueuePanel(QWidget):
 
     def _browse_files(self) -> None:
         start = self.destination_input.text().strip() or str(Path.home())
-        files, _ = QFileDialog.getOpenFileNames(self, "Choose pictures", start, self.FILE_DIALOG_FILTER)
+        files, _ = QFileDialog.getOpenFileNames(self, f"Choose {self.ITEM_WORD}", start, self.FILE_DIALOG_FILTER)
         self.add_files([Path(f) for f in files])
 
     def _browse_folder(self) -> None:
         start = self.destination_input.text().strip() or str(Path.home())
-        folder = QFileDialog.getExistingDirectory(self, "Choose a folder of pictures", start)
+        folder = QFileDialog.getExistingDirectory(self, f"Choose a folder of {self.ITEM_WORD}", start)
         if not folder:
             return
         found = self._scan_folder(Path(folder))
         if not found:
             QMessageBox.information(
-                self, "Nothing to add", "That folder holds no picture this tool can open."
+                self, "Nothing to add", f"That folder holds no {self.ITEM_WORD} this tool can open."
             )
             return
         self.add_files(found)

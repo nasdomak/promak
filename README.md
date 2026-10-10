@@ -11,7 +11,7 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Five tools so far, all in one window:
+Six tools so far, all in one window:
 
 | Tool | What it does |
 |------|--------------|
@@ -19,6 +19,7 @@ Five tools so far, all in one window:
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
+| **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -120,7 +121,18 @@ without ever going blurry.
 * Your originals are never changed; an optional ending (`-web`) is added to
   the new names.
 
-## 5. Number folders
+## 5. Audio toolbox
+
+* **Convert** to MP3, M4A (AAC), WAV, FLAC, OGG or OPUS, or keep the format.
+  Drop a video and only its sound comes out.
+* **Even out the volume** (EBU R128 loudness, the radio standard): every track
+  plays at the same level, nothing is clipped.
+* **Keep only a part**: from `1:30` to `4:00`.
+* **Split** long recordings into pieces of N minutes, saved in their own folder
+  (`Lesson - part 001.mp3`, `part 002`...).
+* **Mono** for speech, at half the size.
+
+## 6. Number folders
 
 ```
 Holiday     ->  01 - Holiday
@@ -236,6 +248,7 @@ promak/
 │   ├── tool_registry.py   # discovers the tools listed in the sidebar
 │   ├── batch.py           # the queue every file tool runs on
 │   ├── filejobs.py        # one file travelling through a tool
+│   ├── media.py           # FFmpeg runner shared by the sound and video tools
 │   ├── eta.py             # the "time left" estimate of the progress bars
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
@@ -256,7 +269,8 @@ promak/
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
-    └── renamer/           # tool 5  (engine.py, panel.py, tool.py)
+    ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
+    └── renamer/           # tool 6  (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a
@@ -289,7 +303,7 @@ pytest -q
 - [x] Estimated time left while working
 - [ ] Video toolbox: trim, convert, compress, extract frames
 - [ ] Text toolbox: summaries, clean-up, format conversion
-- [ ] Audio toolbox: normalise, split, convert
+- [x] Audio toolbox: normalise, split, convert
 - [ ] Command-line mode for scheduled jobs
 - [ ] Ready-made Windows installer (no Python needed)
 
