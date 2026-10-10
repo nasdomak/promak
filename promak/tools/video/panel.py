@@ -578,6 +578,16 @@ class VideoPanel(QWidget):
 
     def _update_yt_dlp(self) -> None:
         """Update the download engine, the usual cure when a site changes."""
+        if getattr(sys, "frozen", False):
+            # the installed program carries its own copy, which pip cannot reach
+            QMessageBox.information(
+                self,
+                "Update",
+                "This copy of Promak was installed with the Promak installer, so the download "
+                "engine is updated together with Promak.\n\nDownload and run the newest "
+                "installer from:\nhttps://github.com/nasdomak/promak/releases",
+            )
+            return
         self.update_button.setEnabled(False)
         self.update_button.setText("Updating...")
         self._log("info", "Updating the download engine, please wait...")
@@ -587,7 +597,7 @@ class VideoPanel(QWidget):
 
     def _on_update_finished(self, ok: bool, output: str) -> None:
         self.update_button.setEnabled(True)
-        self.update_button.setText("Update yt-dlp")
+        self.update_button.setText("Update the download engine")
         self._log("info" if ok else "error", output or ("Updated." if ok else "Update failed."))
         refresh_dependencies()
         self._refresh_dependency_banner()
