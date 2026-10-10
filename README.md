@@ -19,6 +19,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Video toolbox** | Converts any video to an MP4 that plays everywhere, makes it lighter or fits it under a size, trims it, takes pictures out of it |
 | **Burn subtitles** | Draws SRT or VTT subtitles - such as the downloader's transcripts - into the picture of a video |
 | **Cut silences** | Removes the silent parts from lectures, podcasts and recordings, sound or video |
+| **Screen recorder** | Films the whole screen or a rectangle of it into an MP4, with Start and Stop |
 | **Picture to vector** | Redraws a logo, an icon or a drawing as real shapes (SVG), so it can be enlarged to any size without going blurry |
 | **Make pictures lighter** | Squeezes JPG, PNG, WEBP and TIFF files for e-mail and the web, keeping the format and the full pixel size |
 | **Resize and convert** | Resizes, converts (JPG, PNG, WEBP) and watermarks many pictures in one go |
@@ -125,6 +126,21 @@ and the choice is remembered.
   clipped and the speech still breathes.
 * Sound files keep their format (MP3, M4A, WAV, FLAC, OGG, OPUS); videos come
   out as MP4. The queue says how much was removed - lectures often lose 10-30%.
+
+## 2d. Screen recorder
+
+* **The whole screen, or a rectangle** you drag on it; mouse pointer shown or
+  hidden; 15, 30 or 60 frames a second.
+* **Start, then Stop**: while recording a small Stop button floats above every
+  window, and Promak can minimise itself to stay out of the picture.
+* Recorded by FFmpeg - `gdigrab` or the lighter DirectX `ddagrab` on Windows,
+  `x11grab` on Linux - into a file that survives a crash, turned into an MP4
+  when you press Stop.
+* **Microphone: optional and experimental.** FFmpeg reaches it through the
+  system's own device names, which differ between computers; if it cannot be
+  opened Promak says so, and recording without sound always works.
+* Linux desktops running Wayland do not let programs film the screen this way:
+  log in with an X11 session.
 
 ## 2b. Picture to vector (SVG)
 
@@ -530,6 +546,7 @@ promak.bat clean  "D:\To share" --out "D:\Clean"
 promak.bat subtitles "D:\Lessons" --size large --box --out "D:\Subtitled"
 promak.bat silence "D:\Lectures" --level -35 --shortest 0.8 --out "D:\Shorter"
 promak.bat nobg   "D:\Products" --colour "#FFFFFF" --out "D:\Shop"
+promak.bat record --seconds 60 --region "0,0 1280x720" --out "D:\Recordings"
 promak.bat gif    "D:\Frames" --frame-ms 400 --name "Demo"
 promak.bat collage "D:\Holiday" --columns 3 --spacing 20 --fill
 promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
@@ -606,6 +623,7 @@ promak/
     ├── videotools/        # video toolbox (engine.py, panel.py, tool.py)
     ├── subtitles/         # burn subtitles (engine.py, panel.py, tool.py)
     ├── silence/           # cut silences (engine.py, panel.py, tool.py)
+    ├── screenrec/         # screen recorder (engine.py, panel.py, tool.py)
     ├── vectorize/         # tool 2  (engine.py, models.py, panel.py, tool.py)
     ├── shrink/            # tool 3  (engine.py, models.py, panel.py, tool.py)
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
