@@ -23,6 +23,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
+| **Rename files** | Renames many files with a code - number, old name, date a photo was taken, size - with a preview and an undo |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -185,6 +186,24 @@ Work trip   ->  03 - Work trip
 * Names can be swapped safely (01 and 02 trade places), and **Undo last
   renaming** puts the old names back.
 
+## 7b. Rename files
+
+The same codes, preview and undo as *Number folders*, for the files inside a folder:
+
+```
+IMG_2031.JPG  ->  Holiday 2026-07-12 001.jpg      (code: Holiday {taken} {n:3})
+IMG_2032.JPG  ->  Holiday 2026-07-13 002.jpg
+```
+
+* Every piece of *Number folders*, plus `{ext}` (jpg, pdf...), `{taken}` (the
+  date the photo was taken, from the camera's EXIF data; `{taken:time}` adds
+  the hour, `{taken:%Y%m%d}` any layout), `{width}` and `{height}` in pixels.
+* **The ending is always kept** (`.jpg`, `.pdf`), so every file still opens;
+  optionally `.JPG` becomes `.jpg`.
+* Only some kinds of file (`jpg, png`), and the order can also be **by date taken**.
+* Same safety as the folders: clashes are shown and block the run, names can be
+  swapped, and **Undo last renaming** puts the old names back.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -291,6 +310,7 @@ promak.bat vector logo.png --out svg --bw
 promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}"          (preview)
 promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}" --yes    (rename)
 promak.bat rename --undo
+promak.bat rename "D:\Phone" --files --code "{taken} {n:3}" --lower-ext --yes
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -360,6 +380,7 @@ promak/
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
     ├── text/              # text toolbox (engine.py, panel.py, tool.py)
     ├── renamer/           # number folders (engine.py, panel.py, tool.py)
+    ├── filerename/        # rename files - the renamer's engine on files
     └── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
 ```
 
