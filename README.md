@@ -25,6 +25,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
 | **Rename files** | Renames many files with a code - number, old name, date a photo was taken, size - with a preview and an undo |
 | **Find duplicates** | Finds exact copies and similar pictures, keeps the best of each group, sends the others to the Recycle Bin or a folder |
+| **Sort photos by date** | Moves or copies photos and videos into `2026/07 - July` folders by the date they were taken, with a preview and an undo |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -219,6 +220,25 @@ IMG_2032.JPG  ->  Holiday 2026-07-13 002.jpg
 * The others go **to the Recycle Bin**, or are **moved to a folder** of your
   choice keeping their sub-folders - and that move can be undone.
 
+## 7d. Sort photos by date
+
+```
+Camera card/IMG_2031.JPG   ->   Photos by date/2026/07 - July/IMG_2031.JPG
+Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
+```
+
+* The date is the **date taken** written by the camera (EXIF), the
+  **recording date** inside a video, or - if you allow it - the file's own
+  date; otherwise the file goes to `No date`.
+* The folders follow a code: `{year}/{month} - {monthname}` by default,
+  `/` makes a sub-folder; pieces `{year}` `{month}` `{monthname}` `{mon}`
+  `{day}` `{weekday}` `{date}` `{kind}` (Photos / Videos) `{ext}`.
+* **Move** (tidy the folder) or **copy** (the originals stay). Nothing is
+  overwritten: a name already taken gets ` (2)`, a file identical to one
+  already there is left alone. It can sort a folder in place, too.
+* Every file and its new folder are shown first; **Undo last sorting** puts
+  everything back and removes the folders the run created.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -328,6 +348,8 @@ promak.bat rename --undo
 promak.bat rename "D:\Phone" --files --code "{taken} {n:3}" --lower-ext --yes
 promak.bat duplicates "D:\Photos" "E:\Backup" --similar 92               (preview)
 promak.bat duplicates "D:\Photos" --move-to "D:\Doubles" --yes
+promak.bat sortdate "E:\DCIM" --to "D:\Photos by date" --copy --yes
+promak.bat sortdate --undo
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -401,6 +423,7 @@ promak/
     ├── renamer/           # number folders (engine.py, panel.py, tool.py)
     ├── filerename/        # rename files - the renamer's engine on files
     ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
+    ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
     └── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
 ```
 
