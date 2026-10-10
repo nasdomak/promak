@@ -16,6 +16,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | Tool | What it does |
 |------|--------------|
 | **Recipes** | Saves a chain of steps from the other tools - resize, watermark, make lighter... - and runs it with one click |
+| **Watched folder** | Every new file of a folder goes through a tool or a recipe, into an output folder |
 | **Video downloader** | Paste links from almost any site: Promak downloads the video, extracts the MP3 and writes a full transcript |
 | **Video toolbox** | Converts any video to an MP4 that plays everywhere, makes it lighter or fits it under a size, trims it, takes pictures out of it |
 | **Burn subtitles** | Draws SRT or VTT subtitles - such as the downloader's transcripts - into the picture of a video |
@@ -467,6 +468,22 @@ Web photos:   1. Resize to 1600 px   2. Watermark "© My shop"   3. Make lighter
   promak.bat recipe "Web photos" "D:\Holiday" --out "D:\Web"
   ```
 
+## 13. Watched folder
+
+* Choose a folder - where the scanner saves, where the camera copies, the
+  downloads - and **what to do with each new file**: a saved recipe, or one
+  tool with the settings of its own screen. The results go to another folder.
+* The folder is looked at every few seconds while Promak is open; a file is
+  taken only **once it has stopped growing**, so a copy in progress is never
+  caught half way; half-downloaded files (`.part`, `.crdownload`) are ignored.
+* Files already there are left alone unless you ask; each file is done once
+  (again if it comes back with new content); the originals are never changed.
+* Without the window, for a server or the Task Scheduler:
+
+  ```bat
+  promak.bat watch "D:\Scanner" --recipe "Searchable" --out "D:\Scans as text"
+  ```
+
 ---
 
 ## Installation (Windows)
@@ -664,6 +681,7 @@ promak/
     ├── compare/           # compare two folders (engine.py, panel.py, tool.py)
     ├── shred/             # secure delete (engine.py, panel.py, tool.py)
     ├── recipes/           # chains of steps (engine.py, panel.py, tool.py)
+    ├── watch/             # watched folder (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)

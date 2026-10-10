@@ -157,14 +157,7 @@ class RecipesPanel(PlanPanel):
         self._show_steps()
 
     def _options_of(self, tool_id: str):
-        from promak.core.tool_registry import registry
-
-        for tool in registry.discover():
-            if tool.info.id == tool_id:
-                widget = getattr(tool, "_widget", None) or tool.create_widget(self.window())
-                reader = getattr(widget, "current_options", None)
-                return reader() if reader else None
-        return None
+        return tool_options(tool_id, self.window())
 
     def _move(self, delta: int) -> None:
         row = self.steps_list.currentRow()
@@ -337,3 +330,15 @@ class RecipesPanel(PlanPanel):
         self._show_steps()
         self.inputs.set_folders([folder])
         self.on_scanned(self.run_now(self.scan_task()))
+
+
+def tool_options(tool_id: str, parent=None):
+    """The options a tool's own screen holds right now (None if it has none)."""
+    from promak.core.tool_registry import registry
+
+    for tool in registry.discover():
+        if tool.info.id == tool_id:
+            widget = getattr(tool, "_widget", None) or tool.create_widget(parent)
+            reader = getattr(widget, "current_options", None)
+            return reader() if reader else None
+    return None
