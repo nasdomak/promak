@@ -35,6 +35,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
 | **Remove hidden data** | Shows and removes the GPS position, camera and author data hidden in photos, PDF and Office files |
 | **Archives** | Makes ZIP (with an AES password) and 7z archives; lists and extracts ZIP, 7z and TAR safely |
+| **Compare two folders** | Shows what is only on one side, what differs and what is identical, and copies the missing files across |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -323,6 +324,18 @@ Before a photo or a document is shared, see what it tells about you:
 > Windows' own Explorer cannot open AES-protected ZIP files: 7-Zip, WinRAR,
 > PeaZip and Promak can.
 
+## 7g. Compare two folders
+
+* Every file of two folders (a folder and its backup, two copies of a project)
+  gets an answer: **only on the left**, **only on the right**, **different** or
+  **identical** - identical meaning same size *and* same content, read and
+  compared; or, with *Quick*, same size and date.
+* A filter shows every file, only the differences, or one answer at a time;
+  for files that differ it says which side is newer.
+* **Copy what is missing** left to right, right to left or both ways, after a
+  question. Files that differ are never overwritten - you decide which to keep -
+  and **Undo last copy** removes what was copied.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -492,6 +505,7 @@ promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
 promak.bat qr     --kind ean13 --list barcodes.txt --out "D:\Labels"
 promak.bat zip    "D:\Project" --to "D:\Project.7z" --password "****"
 promak.bat unzip  "D:\Downloads\photos.zip" --to "D:\Photos"         (or --list)
+promak.bat compare "D:\Photos" "E:\Backup\Photos" --copy left-to-right --yes
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -573,6 +587,7 @@ promak/
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
     ├── cleanmeta/         # remove hidden data (engine.py, panel.py, tool.py)
     ├── archives/          # ZIP, 7z and TAR (engine.py, panel.py, tool.py)
+    ├── compare/           # compare two folders (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)
