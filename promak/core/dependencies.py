@@ -310,6 +310,8 @@ TOOL_COMPONENTS = {
     "pypdfium2": ("pypdfium2", "pypdfium2", "pypdfium2", "drawing PDF pages as pictures"),
     "send2trash": ("send2trash", "send2trash", "send2trash", "putting files in the Recycle Bin"),
     "imagehash": ("imagehash", "imagehash", "imagehash", "finding pictures that look alike"),
+    "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
+    "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
 }
 
 

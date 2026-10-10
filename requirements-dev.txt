@@ -11,4 +11,6 @@ pikepdf>=8.0
 pypdfium2>=4.20
 send2trash>=1.8
 imagehash>=4.3
+rapidocr>=3.9
+onnxruntime>=1.17
 pytest>=7.0

@@ -26,6 +26,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Rename files** | Renames many files with a code - number, old name, date a photo was taken, size - with a preview and an undo |
 | **Find duplicates** | Finds exact copies and similar pictures, keeps the best of each group, sends the others to the Recycle Bin or a folder |
 | **Sort photos by date** | Moves or copies photos and videos into `2026/07 - July` folders by the date they were taken, with a preview and an undo |
+| **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -258,6 +259,19 @@ Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
   [pypdfium2](https://github.com/pypdfium2-team/pypdfium2); nothing is uploaded and your
   originals are never changed.
 
+## 9. Text from pictures (OCR)
+
+* **Pictures and scanned PDFs** in; a **text file**, a **searchable PDF** or both out.
+* The searchable PDF is the page exactly as it was, with the words laid
+  invisibly on top: the PDF can be searched, and its text selected and copied.
+  For a PDF the original pages are kept as they are.
+* Reads **English, Italian**, French, German, Spanish, Portuguese, Dutch and the
+  other languages written in the Latin alphabet (plus Chinese and Japanese).
+* PDF pages that already hold text are left alone (their text is copied as it is).
+* Done by [RapidOCR](https://github.com/RapidAI/RapidOCR) on ONNX Runtime; its
+  model is part of the installation, so **nothing is downloaded and nothing
+  leaves the computer**.
+
 ---
 
 ## Installation (Windows)
@@ -350,6 +364,7 @@ promak.bat duplicates "D:\Photos" "E:\Backup" --similar 92               (previe
 promak.bat duplicates "D:\Photos" --move-to "D:\Doubles" --yes
 promak.bat sortdate "E:\DCIM" --to "D:\Photos by date" --copy --yes
 promak.bat sortdate --undo
+promak.bat ocr    "D:\Scans" --make both --out "D:\Text"
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -424,7 +439,8 @@ promak/
     ├── filerename/        # rename files - the renamer's engine on files
     ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
-    └── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
+    ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
+    └── ocr/               # text from pictures (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a
