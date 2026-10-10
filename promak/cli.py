@@ -20,6 +20,7 @@
     python -m promak silence  lectures/ --level -35 --shortest 0.8
     python -m promak zip      D:/Project --to D:/Project.7z --password ****
     python -m promak unzip    D:/Downloads/photos.zip --to D:/Photos
+    python -m promak compare  D:/Photos E:/Backup --copy left-to-right --yes
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -41,7 +42,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare")
 
 
 # ------------------------------------------------------------ the engines
@@ -416,6 +417,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--password", default="")
     p.add_argument("--overwrite", action="store_true")
 
+    p = sub.add_parser("compare", help="compare two folders; copy the files one side is missing")
+    p.add_argument("left", type=Path, nargs="?")
+    p.add_argument("right", type=Path, nargs="?")
+    p.add_argument("--quick", action="store_true", help="size and date instead of reading the files")
+    p.add_argument("--no-subfolders", action="store_true")
+    p.add_argument("--all", action="store_true", help="also print the identical files")
+    p.add_argument("--copy", choices=("left-to-right", "right-to-left", "both"), help="copy the missing files")
+    p.add_argument("--yes", action="store_true", help="really copy; without it only the plan is printed")
+    p.add_argument("--undo", action="store_true", help="remove the files of the last copy")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -684,6 +695,43 @@ def run_unzip(args) -> int:
     return 1 if failed else 0
 
 
+def run_compare(args) -> int:
+    from promak.core.fileops import forget_journal, load_journal, undo_journal
+    from promak.tools.compare import engine as e
+
+    if args.undo:
+        journal = load_journal(e.TOOL)
+        if journal is None:
+            print("[!] There is no copy to undo.", file=sys.stderr)
+            return 2
+        count = undo_journal(journal, lambda level, text: print(f"[!] {text}", file=sys.stderr))
+        forget_journal(e.TOOL)
+        print(f"[.] {count} copied file(s) removed.")
+        return 0
+    if not args.left or not args.right:
+        print("[!] Give the two folders.", file=sys.stderr)
+        return 2
+    options = e.CompareOptions(left=args.left, right=args.right, recursive=not args.no_subfolders, quick=args.quick)
+    problem = options.validate()
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    results = e.compare_folders(options)
+    for item in results:
+        if item.status != e.IDENTICAL or args.all:
+            print(f"{item.status:18} {item.relative}")
+    print(f"[.] {e.summary_text(results)}")
+    if not args.copy:
+        return 0
+    plan = e.copy_plan(results, args.copy)
+    if not args.yes:
+        print(f"[.] {len(plan)} file(s) would be copied. Add --yes to copy them.")
+        return 0
+    result = e.copy_missing(results, options, args.copy, on_log=lambda level, text: print(f"[!] {text}", file=sys.stderr))
+    print(f"[.] {result['done']} file(s) copied. Undo with:  python -m promak compare --undo")
+    return 1 if result["failed"] else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -703,6 +751,8 @@ def main(argv: Sequence[str]) -> int:
         return run_qr(args)
     if args.command == "zip":
         return run_zip(args)
+    if args.command == "compare":
+        return run_compare(args)
     if args.command == "unzip":
         return run_unzip(args)
     return run_files(args)
