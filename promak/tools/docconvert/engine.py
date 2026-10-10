@@ -598,18 +598,31 @@ _POWERSHELL = {
 }
 
 
+def powershell_exe() -> str:
+    """Windows PowerShell by its full path: Promak may be started with a PATH that lacks it."""
+    root = os.environ.get("SystemRoot") or os.environ.get("WINDIR") or r"C:\Windows"
+    full = Path(root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    if full.is_file():
+        return str(full)
+    return shutil.which("powershell") or "powershell"
+
+
 def office_to_pdf(source: Path, target: Path, timeout: int = 300) -> str:
     """Ask Office or LibreOffice to print ``source`` to ``target``; returns who did it."""
     app = _OFFICE_APP.get(source.suffix.lower())
     if app and app in microsoft_office_apps():
         script = (f"$ErrorActionPreference = 'Stop'; $src = '{_ps(source.resolve())}'; "
                   f"$dst = '{_ps(target.resolve())}'; " + _POWERSHELL[app])
-        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                                capture_output=True, text=True, errors="replace", timeout=timeout,
-                                **SUBPROCESS_QUIET)
-        if result.returncode == 0 and target.exists():
-            return f"Microsoft {app}"
-        log.warning("Office could not make the PDF: %s", result.stderr[-500:])
+        try:
+            result = subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", script],
+                                    capture_output=True, text=True, errors="replace", timeout=timeout,
+                                    **SUBPROCESS_QUIET)
+        except OSError as exc:              # PowerShell itself could not be started
+            log.warning("PowerShell could not be started to drive Office: %s", exc)
+        else:
+            if result.returncode == 0 and target.exists():
+                return f"Microsoft {app}"
+            log.warning("Office could not make the PDF: %s", result.stderr[-500:])
     soffice = find_libreoffice()
     if not soffice:
         raise ConvertError(NO_OFFICE_MESSAGE)

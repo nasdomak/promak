@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from promak import __version__
 from promak.core.batch import BatchCancelled, BatchEngine
 from promak.core.filejobs import FileJob
 from promak.core.imaging import ImageToolError, human_size
@@ -40,6 +41,9 @@ from promak.tools.pdf.engine import output_path
 log = logging.getLogger(__name__)
 
 INDEX_URL = "https://raw.githubusercontent.com/argosopentech/argospm-index/main/index.json"
+#: argos-net.com, where the packs live, answers "403 Forbidden" to Python's
+#: own name ("Python-urllib/3.x"): every download says who is asking
+USER_AGENT = f"Promak/{__version__} (+https://github.com/nasdomak/promak)"
 ACCEPTED_EXTENSIONS = (".txt", ".md", ".markdown", ".srt", ".vtt")
 
 #: the languages offered first; the index may know more
@@ -94,7 +98,8 @@ def installed_pairs() -> Dict[Tuple[str, str], Path]:
 def _download(url: str, target: Path, progress: Progress, cancel: threading.Event) -> None:
     scratch = target.with_name(target.name + ".part")
     try:
-        with urllib.request.urlopen(url, timeout=60) as response, open(scratch, "wb") as out:  # noqa: S310
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=60) as response, open(scratch, "wb") as out:  # noqa: S310
             total = int(response.headers.get("Content-Length") or 0)
             done = 0
             while True:

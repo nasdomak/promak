@@ -121,3 +121,33 @@ def test_translate_screen(qapp, packs, tmp_path):
     finally:
         panel.deleteLater()
         qapp.processEvents()
+
+
+def test_downloads_say_who_is_asking(tmp_path, monkeypatch):
+    """argos-net.com refuses Python's own name with 403: Promak must send its own."""
+    import io
+    import threading
+
+    seen = {}
+
+    class Answer(io.BytesIO):
+        headers = {"Content-Length": "5"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def fake_urlopen(request, timeout=0):
+        seen["agent"] = request.get_header("User-agent")
+        seen["url"] = request.full_url
+        return Answer(b"hello")
+
+    monkeypatch.setattr(e.urllib.request, "urlopen", fake_urlopen)
+    target = tmp_path / "pack.argosmodel"
+    e._download("https://argos-net.com/v1/translate-it_en-1_0.argosmodel", target, lambda *_: None,
+                threading.Event())
+    assert target.read_bytes() == b"hello"
+    assert seen["url"].endswith("translate-it_en-1_0.argosmodel")
+    assert seen["agent"].startswith("Promak/") and "Python-urllib" not in seen["agent"]

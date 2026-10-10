@@ -187,3 +187,38 @@ def test_docconvert_screen(qapp, tmp_path):
     finally:
         panel.deleteLater()
         qapp.processEvents()
+
+
+def test_powershell_is_found_without_the_path(tmp_path, monkeypatch):
+    """Office is driven through PowerShell: it must be found even when PATH does not list it."""
+    exe = tmp_path / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    monkeypatch.setenv("SystemRoot", str(tmp_path))
+    monkeypatch.setenv("PATH", "")
+    assert e.powershell_exe() == str(exe)
+
+
+def test_office_falls_back_to_libreoffice_when_powershell_cannot_start(tmp_path, monkeypatch):
+    source = tmp_path / "letter.docx"
+    source.write_bytes(b"")
+    target = tmp_path / "out" / "letter.pdf"
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command[0])
+        if "soffice" not in command[0]:
+            raise FileNotFoundError(2, "not found")
+        outdir = Path(command[command.index("--outdir") + 1])
+        (outdir / "letter.pdf").write_bytes(b"%PDF-1.4")
+
+        class Done:
+            returncode, stdout, stderr = 0, "", ""
+        return Done()
+
+    monkeypatch.setattr(e, "microsoft_office_apps", lambda: ("Word",))
+    monkeypatch.setattr(e, "find_libreoffice", lambda: "soffice")
+    monkeypatch.setattr(e.subprocess, "run", fake_run)
+    assert e.office_to_pdf(source, target) == "LibreOffice"
+    assert target.read_bytes() == b"%PDF-1.4"
+    assert len(calls) == 2
