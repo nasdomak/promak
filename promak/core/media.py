@@ -174,3 +174,37 @@ def explain(stderr: str) -> str:
     if "does not contain any stream" in lowered or "matches no streams" in lowered:
         return "The file has no part of the kind asked for (for example no sound)."
     return text.splitlines()[-1][:300]
+
+
+_CREATION_RE = re.compile(r"creation_time\s*:\s*(\d{4}-\d\d-\d\d)[T ](\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:?\d\d)?")
+
+
+def creation_time(path: Path):
+    """When a video (or sound file) was recorded, from its own metadata.
+
+    Cameras and phones write a ``creation_time`` in UTC; it is turned into
+    the computer's local time.  Returns ``None`` when the file has none.
+    """
+    from datetime import datetime, timezone
+
+    exe = ffmpeg_exe()
+    if not exe:
+        return None
+    try:
+        result = subprocess.run([exe, "-hide_banner", "-i", str(path)], capture_output=True,
+                                text=True, errors="replace", timeout=60, **SUBPROCESS_QUIET)
+    except Exception:  # pragma: no cover - depends on the machine
+        return None
+    match = _CREATION_RE.search(result.stderr or "")
+    if not match:
+        return None
+    try:
+        when = datetime.strptime(f"{match.group(1)} {match.group(2)}", "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    if when.year < 1971:  # "1970-01-01" or "1904-01-01": the camera did not know
+        return None
+    zone = match.group(4)
+    if zone and zone != "Z":
+        return when  # already local time with an offset: keep the clock as written
+    return when.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)

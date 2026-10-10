@@ -174,6 +174,7 @@ class PlanPanel(QWidget):
         self.summary_label = QLabel("")
         self.summary_label.setObjectName("HintLabel")
         self.summary_label.setWordWrap(True)
+        self.summary_label.setMinimumWidth(260)
         self.summary_label.setMaximumWidth(460)
         footer.addWidget(self.summary_label)
         self.undo_button = QPushButton(self.UNDO_LABEL or "Undo")

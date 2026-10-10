@@ -10,6 +10,7 @@
     python -m promak rename   D:/Phone --files --code "{taken} {n:3}" --yes
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
+    python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
 A folder given as input means every file in it the tool can open.  Without
 ``--out`` the new files go next to the originals (which are never changed).
@@ -29,7 +30,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate")
 
 
 # ------------------------------------------------------------ the engines
@@ -228,6 +229,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--move-to", type=Path, help="move the extra copies here instead of the Recycle Bin")
     p.add_argument("--yes", action="store_true", help="act; without it only the groups are printed")
 
+    p = sub.add_parser("sortdate", help="move or copy photos and videos into dated folders")
+    p.add_argument("folders", nargs="*", type=Path)
+    p.add_argument("--to", type=Path, help="where the dated folders are made")
+    p.add_argument("--copy", action="store_true", help="copy instead of moving")
+    p.add_argument("--pattern", default="{year}/{month} - {monthname}")
+    p.add_argument("--all-files", action="store_true", help="not only photos and videos")
+    p.add_argument("--no-file-date", action="store_true", help='no camera date = folder "No date"')
+    p.add_argument("--no-subfolders", action="store_true")
+    p.add_argument("--yes", action="store_true", help="act; without it only the plan is printed")
+    p.add_argument("--undo", action="store_true", help="put back the files of the last sorting")
+
     p = sub.add_parser("rename", help="give the folders (or with --files the files) inside a folder new names")
     p.add_argument("folder", type=Path, nargs="?", default=Path("."))
     p.add_argument("--code", default="{n} - {name}", help='naming code, e.g. "PRJ-{year}-{n:3} {name}"')
@@ -368,6 +380,40 @@ def run_duplicates(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def run_sortdate(args) -> int:
+    from promak.core.fileops import COPY, MOVE, forget_journal, load_journal, undo_journal
+    from promak.tools.sortdate import engine as e
+
+    if args.undo:
+        journal = load_journal(e.TOOL)
+        if journal is None:
+            print("[!] There is no sorting to undo.", file=sys.stderr)
+            return 2
+        count = undo_journal(journal, lambda level, text: print(f"[!] {text}", file=sys.stderr))
+        forget_journal(e.TOOL)
+        print(f"[.] {count} file(s) put back.")
+        return 0
+    options = e.SortOptions(folders=list(args.folders), recursive=not args.no_subfolders, target=args.to,
+                            action=COPY if args.copy else MOVE, pattern=args.pattern, all_files=args.all_files,
+                            use_file_date=not args.no_file_date)
+    problem = options.validate()
+    if problem:
+        print(f"[!] {problem}", file=sys.stderr)
+        return 2
+    plan = e.plan_sort(options)
+    for move in plan:
+        when = move.when.strftime("%Y-%m-%d") if move.when else "no date"
+        note = f"   ({move.note})" if move.note else ""
+        print(f"{move.source.name}  [{when}, {move.found_by}]  ->  {move.target.parent}{note}")
+    print(f"[.] {e.summary_text(plan, options.action)}")
+    if not args.yes:
+        print("[.] Preview only. Add --yes to sort.")
+        return 0
+    result = e.apply_sort(plan, options, on_log=lambda level, text: print(f"[!] {text}", file=sys.stderr))
+    print(f"[.] {result['done']} file(s) sorted. Undo with:  python -m promak sortdate --undo")
+    return 1 if result["failed"] else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -381,6 +427,8 @@ def main(argv: Sequence[str]) -> int:
         return run_rename(args)
     if args.command == "duplicates":
         return run_duplicates(args)
+    if args.command == "sortdate":
+        return run_sortdate(args)
     return run_files(args)
 
 
