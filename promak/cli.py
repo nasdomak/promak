@@ -10,6 +10,7 @@
     python -m promak rename   D:/Phone --files --code "{taken} {n:3}" --yes
     python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
     python -m promak ocr      scans/ --make both --out text/
+    python -m promak convert  report.docx --to md
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -31,7 +32,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert")
 
 
 # ------------------------------------------------------------ the engines
@@ -126,11 +127,24 @@ def _ocr(args):
     return options, OcrBatch
 
 
+def _convert(args):
+    from promak.tools.docconvert.engine import ConvertBatch, ConvertOptions
+
+    options = ConvertOptions(target=args.to, every_sheet=not args.first_sheet,
+                             delimiter={"comma": ",", "semicolon": ";", "tab": "\t"}[args.separator],
+                             suffix=args.suffix, overwrite=args.overwrite)
+    return options, ConvertBatch
+
+
 def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "convert":
+        from promak.tools.docconvert.engine import SOURCES
+
+        return SOURCES[args.to]
     if command == "ocr":
         from promak.tools.ocr.engine import ACCEPTED_EXTENSIONS as OCR_EXTENSIONS
 
@@ -147,7 +161,7 @@ def _extensions(command: str, args=None) -> Sequence[str]:
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
-    "pdf": _pdf, "ocr": _ocr,
+    "pdf": _pdf, "ocr": _ocr, "convert": _convert,
 }
 
 
@@ -237,6 +251,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--make", choices=("text", "pdf", "both"), default="text", help="text file, searchable PDF or both")
     p.add_argument("--dpi", type=int, default=200, help="how finely PDF pages are looked at")
     p.add_argument("--read-all", action="store_true", help="also read PDF pages that already hold text")
+    p.add_argument("--suffix", default="")
+
+    p = file_tool("convert", "convert Word, Markdown, text, Excel and CSV files; Office files to PDF")
+    p.add_argument("--to", required=True, choices=("txt", "md", "html", "docx", "csv", "xlsx", "pdf"))
+    p.add_argument("--separator", choices=("comma", "semicolon", "tab"), default="comma", help="for CSV files written")
+    p.add_argument("--first-sheet", action="store_true", help="Excel to CSV: only the first sheet")
     p.add_argument("--suffix", default="")
 
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")

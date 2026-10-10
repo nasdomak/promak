@@ -74,6 +74,25 @@ def _sample_documents(folder: Path) -> list:
         path = folder / name
         sheets[0].save(path, "PDF", save_all=True, append_images=sheets[1:])
         paths.append(path)
+    notes = folder / "Meeting notes.md"
+    notes.write_text("# Meeting\n\n- Budget\n- Dates\n", encoding="utf-8")
+    prices = folder / "Price list.csv"
+    prices.write_text("Item;Price\nChair;49,90\nTable;129,00\n", encoding="utf-8")
+    paths += [notes, prices]
+    try:
+        from promak.core.tables import write_xlsx
+
+        write_xlsx(folder / "Budget 2026.xlsx", {"Budget": [["Month", "Spent"], ["January", 1200]]})
+        paths.append(folder / "Budget 2026.xlsx")
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Offer", 1)
+        document.add_paragraph("Thank you for your request.")
+        document.save(str(folder / "Offer.docx"))
+        paths.append(folder / "Offer.docx")
+    except Exception:  # an optional component is missing: fewer samples
+        pass
     return paths
 
 

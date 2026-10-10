@@ -19,3 +19,5 @@ send2trash>=1.8         # files go to the Recycle Bin, never deleted outright (B
 imagehash>=4.3          # perceptual fingerprints of pictures, for similar photos (BSD-2)
 rapidocr>=3.9           # offline OCR, multilingual model built in (Apache-2.0)
 onnxruntime>=1.17       # runs the OCR and background models (MIT)
+python-docx>=1.1        # Word files read and written (MIT)
+openpyxl>=3.1           # Excel files read and written (MIT)

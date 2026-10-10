@@ -27,6 +27,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Find duplicates** | Finds exact copies and similar pictures, keeps the best of each group, sends the others to the Recycle Bin or a folder |
 | **Sort photos by date** | Moves or copies photos and videos into `2026/07 - July` folders by the date they were taken, with a preview and an undo |
 | **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
+| **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -272,6 +273,24 @@ Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
   model is part of the installation, so **nothing is downloaded and nothing
   leaves the computer**.
 
+## 10. Convert documents
+
+| From | To |
+|------|----|
+| Word (DOCX) | plain text, Markdown, web page (HTML), PDF* |
+| Markdown, text | Word (DOCX), web page (HTML) |
+| Excel (XLSX) | CSV - one per sheet, or only the first; comma, semicolon or tab |
+| CSV | Excel (XLSX) - numbers become numbers, codes such as `00184` stay text |
+| DOC, ODT, RTF, XLS, ODS, PPT, PPTX, ODP | PDF* |
+
+* Headings, paragraphs, bold, italic, lists, quotes, code and tables are kept
+  (pictures inside a Word file are not carried over to text formats).
+* The separator of a CSV file (comma or semicolon) and its encoding are worked
+  out by themselves.
+* \*PDF is drawn by **Microsoft Office** (Windows) or **LibreOffice** (free, any
+  system) when one of them is installed - Promak asks it in the background.
+  When neither is there the screen says so.
+
 ---
 
 ## Installation (Windows)
@@ -365,6 +384,8 @@ promak.bat duplicates "D:\Photos" --move-to "D:\Doubles" --yes
 promak.bat sortdate "E:\DCIM" --to "D:\Photos by date" --copy --yes
 promak.bat sortdate --undo
 promak.bat ocr    "D:\Scans" --make both --out "D:\Text"
+promak.bat convert "D:\Reports" --to md
+promak.bat convert prices.csv --to xlsx
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -411,6 +432,7 @@ promak/
 │   ├── filejobs.py        # one file travelling through a tool
 │   ├── media.py           # FFmpeg runner shared by the sound and video tools
 │   ├── fileops.py         # safe move / copy / Recycle Bin, with an undo journal
+│   ├── tables.py          # CSV and Excel read and written the same way everywhere
 │   ├── eta.py             # the "time left" estimate of the progress bars
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
@@ -440,7 +462,8 @@ promak/
     ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
-    └── ocr/               # text from pictures (engine.py, panel.py, tool.py)
+    ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
+    └── docconvert/        # convert documents (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a
