@@ -40,12 +40,16 @@ from promak.tools.renamer.engine import (
     ORDER_MANUAL,
     ORDER_NAME,
     ORDERS,
+    CODE_EXAMPLES,
+    CODE_PIECES,
+    STYLE_CUSTOM,
     STYLE_NUMBER_NAME,
     STYLES,
     Rename,
     RenameError,
     RenameOptions,
     apply_renames,
+    check_pattern,
     last_journal,
     list_folders,
     plan_renames,
@@ -175,16 +179,60 @@ class RenamerPanel(QWidget):
         self.digits_spin.setToolTip("01 has two digits, 001 three. Automatic uses just enough for the last number.")
         self.drop_check = QCheckBox("Replace a number already at the start of the name")
         self.drop_check.setToolTip('"07 - Holiday" becomes "01 - Holiday", not "01 - 07 - Holiday".')
-        rows = (
-            ("Style", self.style_combo), ("Text", self.text_input),
-            ("Separator", self.separator_input), ("First number", self.start_spin),
-            ("Step", self.step_spin), ("Digits", self.digits_spin),
+
+        # --- my own code ---------------------------------------------------
+        self.pattern_input = QLineEdit()
+        self.pattern_input.setPlaceholderText("for example  PRJ-{year}-{n:3} {name}")
+        self.pattern_input.setToolTip("\n".join(f"{piece}   {meaning}" for piece, meaning in CODE_PIECES))
+        self.piece_combo = QComboBox()
+        self.piece_combo.addItem("Insert a piece...", "")
+        for piece, meaning in CODE_PIECES:
+            self.piece_combo.addItem(f"{piece}   {meaning}", piece.split(" ")[0])
+        self.piece_combo.activated.connect(self._insert_piece)
+        self.saved_combo = QComboBox()
+        self.saved_combo.setToolTip("Your saved codes, and a few examples to start from.")
+        self.saved_combo.activated.connect(self._use_saved_code)
+        save_code = QPushButton("Save")
+        save_code.setToolTip("Keep this code in the list, to use it again another day.")
+        save_code.clicked.connect(self._save_code)
+        forget_code = QPushButton("Delete")
+        forget_code.setToolTip("Take the chosen code out of your list.")
+        forget_code.clicked.connect(self._forget_code)
+        saved_row = QHBoxLayout()
+        saved_row.addWidget(self.saved_combo, 1)
+        saved_row.addWidget(save_code)
+        saved_row.addWidget(forget_code)
+        self.pieces_help = QLabel(
+            "Write the name as you want it and put pieces in braces where the variable parts go: "
+            "{n} the number, {name} the old name, {date} the folder's date, {letter}, {roman}, "
+            "{parent}... Hover the code box for the full list."
         )
-        for index, (caption, widget) in enumerate(rows):
-            grid.addWidget(QLabel(caption), index, 0)
+        self.pieces_help.setObjectName("HintLabel")
+        self.pieces_help.setWordWrap(True)
+
+        self._style_rows = {}
+        rows = (
+            ("Style", self.style_combo, "all"), ("Code", self.pattern_input, "custom"),
+            ("", self.piece_combo, "custom"), ("My codes", saved_row, "custom"),
+            ("", self.pieces_help, "custom"),
+            ("Text", self.text_input, "plain"), ("Separator", self.separator_input, "plain"),
+            ("First number", self.start_spin, "all"),
+            ("Step", self.step_spin, "all"), ("Digits", self.digits_spin, "all"),
+        )
+        for index, (caption, widget, kind) in enumerate(rows):
+            label = QLabel(caption)
+            grid.addWidget(label, index, 0)
+            if isinstance(widget, QHBoxLayout):
+                holder = QWidget()
+                holder.setLayout(widget)
+                widget.setContentsMargins(0, 0, 0, 0)
+                widget = holder
             grid.addWidget(widget, index, 1)
+            self._style_rows.setdefault(kind, []).extend([label, widget])
         grid.addWidget(self.drop_check, len(rows), 0, 1, 2)
         layout.addWidget(box)
+        self.style_combo.currentIndexChanged.connect(self._on_style_changed)
+        self.pattern_input.textChanged.connect(self.refresh_preview)
 
         for signal in (self.style_combo.currentIndexChanged, self.text_input.textChanged,
                        self.separator_input.textChanged, self.start_spin.valueChanged,
@@ -254,6 +302,9 @@ class RenamerPanel(QWidget):
         self.step_spin.setValue(int(c.get("renamer.step", 1)) or 1)
         self.digits_spin.setValue(int(c.get("renamer.digits", 2)))
         self.drop_check.setChecked(bool(c.get("renamer.drop_old_number", True)))
+        self.pattern_input.setText(c.get("renamer.pattern", "{n} - {name}") or "{n} - {name}")
+        self._fill_saved_codes()
+        self._on_style_changed()
         self.folder_input.setText(c.get("renamer.folder", "") or "")
         if self.folder_input.text():
             self.reload()
@@ -264,7 +315,7 @@ class RenamerPanel(QWidget):
             "renamer.order": o.order, "renamer.style": o.style, "renamer.descending": o.descending,
             "renamer.text": o.text, "renamer.separator": o.separator, "renamer.start": o.start,
             "renamer.step": o.step, "renamer.digits": o.digits,
-            "renamer.drop_old_number": o.drop_old_number,
+            "renamer.drop_old_number": o.drop_old_number, "renamer.pattern": o.pattern,
             "renamer.folder": self.folder_input.text().strip(),
         })
 
@@ -285,7 +336,65 @@ class RenamerPanel(QWidget):
             descending=self.descending_check.isChecked(),
             drop_old_number=self.drop_check.isChecked(),
             include_hidden=self.hidden_check.isChecked(),
+            pattern=self.pattern_input.text(),
         )
+
+    # ====================================================== my own code
+    def _on_style_changed(self, *_args) -> None:
+        custom = (self.style_combo.currentData() or "") == STYLE_CUSTOM
+        for widget in self._style_rows.get("custom", []):
+            widget.setVisible(custom)
+        for widget in self._style_rows.get("plain", []):
+            widget.setVisible(not custom)
+
+    def _insert_piece(self, index: int) -> None:
+        piece = self.piece_combo.itemData(index)
+        self.piece_combo.setCurrentIndex(0)
+        if piece:
+            self.pattern_input.insert(piece)
+            self.pattern_input.setFocus()
+
+    def saved_codes(self) -> List[str]:
+        codes = self.config.get("renamer.saved_patterns") or []
+        return [c for c in codes if isinstance(c, str) and c.strip()]
+
+    def _fill_saved_codes(self, select: str = "") -> None:
+        self.saved_combo.blockSignals(True)
+        self.saved_combo.clear()
+        self.saved_combo.addItem("Choose a code...", "")
+        for code in self.saved_codes():
+            self.saved_combo.addItem(code, code)
+        for code in CODE_EXAMPLES:
+            if code not in self.saved_codes():
+                self.saved_combo.addItem(f"{code}   (example)", code)
+        index = self.saved_combo.findData(select) if select else 0
+        self.saved_combo.setCurrentIndex(max(0, index))
+        self.saved_combo.blockSignals(False)
+
+    def _use_saved_code(self, index: int) -> None:
+        code = self.saved_combo.itemData(index)
+        if code:
+            self.pattern_input.setText(code)
+
+    def _save_code(self) -> None:
+        code = self.pattern_input.text().strip()
+        problem = check_pattern(code)
+        if problem:
+            QMessageBox.information(self, "Save the code", problem)
+            return
+        codes = [c for c in self.saved_codes() if c != code]
+        self.config.set("renamer.saved_patterns", [code, *codes][:30])
+        self._fill_saved_codes(select=code)
+        self._log("info", f"Code saved: {code}")
+
+    def _forget_code(self) -> None:
+        code = self.saved_combo.currentData() or self.pattern_input.text().strip()
+        codes = self.saved_codes()
+        if code not in codes:
+            return
+        self.config.set("renamer.saved_patterns", [c for c in codes if c != code])
+        self._fill_saved_codes()
+        self._log("info", f"Code deleted: {code}")
 
     # ======================================================== the list
     def set_folder(self, folder: Path) -> None:

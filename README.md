@@ -132,6 +132,12 @@ Work trip   ->  03 - Work trip
   with the Move up / Move down buttons.
 * Number before or after the old name, number only, or your own text plus the
   number; first number, step and digits (01, 001...) are up to you.
+* **Your own code**: write the name as you want it, with pieces in braces for
+  the parts that change - `PRJ-{year}-{n:3} {name}` gives `PRJ-2026-001 Holiday`.
+  Pieces: `{n}` (`{n:3}` = 001), `{name}` (also `:upper`, `:lower`, `:title`),
+  `{original}`, `{letter}` (A, B ... AA), `{roman}` (I, II, III), `{date}`,
+  `{year}`, `{month}`, `{day}` (date the folder was changed), `{today}`,
+  `{parent}`, `{total}`. Codes you like are saved in *My codes* for next time.
 * An old number at the start of the name is replaced, not doubled.
 * **Every new name is shown before anything is renamed**; clashes are flagged
   and block the run.

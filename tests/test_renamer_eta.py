@@ -112,3 +112,29 @@ def test_nothing_to_rename(tmp_path):
     _make(tmp_path, "01 - x")
     with pytest.raises(RenameError):
         apply_renames(plan_renames(list_folders(tmp_path), RenameOptions()), tmp_path / "j")
+
+
+# -------------------------------------------------------------- custom code
+def test_custom_code_pieces(tmp_path):
+    from promak.tools.renamer.engine import STYLE_CUSTOM, check_pattern, letters, roman
+
+    _make(tmp_path, "03 - Holiday", "work")
+    os.utime(tmp_path / "work", (1_780_000_000, 1_780_000_000))
+    folders = list_folders(tmp_path)
+
+    def names(pattern, **extra):
+        options = RenameOptions(style=STYLE_CUSTOM, pattern=pattern, **extra)
+        assert options.validate() is None, options.validate()
+        return [r.new_name for r in plan_renames(folders, options)]
+
+    assert names("PRJ-{n:3} {name}") == ["PRJ-001 Holiday", "PRJ-002 work"]
+    assert names("{letter}. {name:upper}") == ["A. HOLIDAY", "B. WORK"]
+    assert names("Chapter {roman:lower} - {original}") == ["Chapter i - 03 - Holiday", "Chapter ii - work"]
+    assert names("{parent} {n} of {total}")[1] == f"{tmp_path.name} 02 of 2"
+    year = __import__("datetime").datetime.fromtimestamp(1_780_000_000).strftime("%Y")
+    assert names("{year} {name}")[1] == f"{year} work"
+    assert check_pattern("{n} {colour}") == "Unknown piece in the code: {colour}"
+    assert check_pattern("fixed name")
+    assert check_pattern("{n}/{name}")
+    assert check_pattern("{n:x}")
+    assert letters(27) == "AA" and roman(1994) == "MCMXCIV"
