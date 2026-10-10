@@ -53,6 +53,30 @@ def _sample_pictures(folder: Path) -> list:
     return paths
 
 
+def _sample_documents(folder: Path) -> list:
+    """A few small documents for the document tools."""
+    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return []
+    paths = []
+    for name, pages in (("Annual report.pdf", 12), ("Scanned contract.pdf", 3)):
+        sheets = []
+        for number in range(pages):
+            sheet = Image.new("RGB", (620, 877), "white")
+            draw = ImageDraw.Draw(sheet)
+            draw.rectangle((60, 60, 560, 110), fill=(47, 91, 234))
+            for line in range(18):
+                draw.rectangle((60, 150 + line * 34, 520 - (line % 4) * 40, 162 + line * 34), fill=(200, 205, 215))
+            draw.text((60, 830), f"{number + 1}", fill="black")
+            sheets.append(sheet)
+        path = folder / name
+        sheets[0].save(path, "PDF", save_all=True, append_images=sheets[1:])
+        paths.append(path)
+    return paths
+
+
 def _fill_video(panel, destination: Path) -> None:
     from promak.tools.video.models import Stage
 
@@ -109,10 +133,13 @@ def main(argv=None) -> int:
     app.processEvents()
 
     destination = _SANDBOX / "Downloads" / "Promak"
-    pictures = _sample_pictures(_SANDBOX / "pictures")
+    pictures = _sample_pictures(_SANDBOX / "pictures") + _sample_documents(_SANDBOX / "documents")
     for index in range(window.stack.count()):
         page = window.stack.widget(index)
-        if hasattr(page, "url_input"):
+        if hasattr(page, "screenshot_sample"):
+            # screens that are not a plain queue fill themselves
+            page.screenshot_sample(_SANDBOX)
+        elif hasattr(page, "url_input"):
             _fill_video(page, destination)
         elif hasattr(page, "set_folder"):
             albums = _SANDBOX / "albums"
@@ -121,12 +148,15 @@ def main(argv=None) -> int:
             page.set_folder(albums)
         elif hasattr(page, "add_files"):
             accepted = tuple(getattr(page, "ACCEPTED_EXTENSIONS", ()))
-            _fill_files(page, [p for p in pictures if p.suffix in accepted], destination)
+            files = [p for p in pictures if p.suffix.lower() in accepted]
+            # documents first, so a document tool does not look like a picture tool
+            files.sort(key=lambda p: p.suffix.lower() in (".png", ".jpg"))
+            _fill_files(page, files, destination)
 
     taken = []
     for theme in ("light", "dark"):
         window.apply_theme(theme)
-        for row in range(window.tool_list.count()):
+        for row in window.tool_rows():
             window.tool_list.setCurrentRow(row)
             tool_id = window.tool_list.item(row).data(256)  # Qt.UserRole
             for _ in range(3):

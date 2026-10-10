@@ -7,6 +7,7 @@
     python -m promak video    clips/ --out small/ --fit 25
     python -m promak text     notes/ --out clean/ --make both --format md
     python -m promak rename   D:/Photos/2026 --code "{n:3} - {name}" --yes
+    python -m promak pdf      a.pdf b.pdf scan.jpg --do merge --out joined/
 
 A folder given as input means every file in it the tool can open.  Without
 ``--out`` the new files go next to the originals (which are never changed).
@@ -26,7 +27,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf")
 
 
 # ------------------------------------------------------------ the engines
@@ -103,11 +104,25 @@ def _text(args):
     return options, TextBatch
 
 
-def _extensions(command: str) -> Sequence[str]:
+def _pdf(args):
+    from promak.tools.pdf import engine as e
+
+    options = e.PdfOptions(action=args.do, pages=args.pages, split_mode=args.split, chunk=args.chunk,
+                           angle=args.angle, level={"strong": 0, "balanced": 1, "light": 2}[args.level],
+                           picture_format=args.picture_format, dpi=args.dpi, password=args.password,
+                           merged_name=args.name, overwrite=args.overwrite)
+    return options, e.PdfBatch
+
+
+def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.imaging import RASTER_EXTENSIONS
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "pdf":
+        from promak.tools.pdf.engine import ACCEPTED_EXTENSIONS, MERGE, PDF_EXTENSIONS
+
+        return ACCEPTED_EXTENSIONS if getattr(args, "do", "") == MERGE else PDF_EXTENSIONS
     return {
         "shrink": RASTER_EXTENSIONS, "resize": RASTER_EXTENSIONS, "vector": RASTER_EXTENSIONS,
         "audio": AUDIO_EXTENSIONS + VIDEO_EXTENSIONS, "video": VIDEO_EXTENSIONS, "text": TEXT_EXTENSIONS,
@@ -116,6 +131,7 @@ def _extensions(command: str) -> Sequence[str]:
 
 BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
+    "pdf": _pdf,
 }
 
 
@@ -188,6 +204,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-duplicates", action="store_true")
     p.add_argument("--suffix", default="")
 
+    p = file_tool("pdf", "merge, split, pick, rotate, compress or protect PDF files")
+    p.add_argument("--do", required=True, choices=("merge", "split", "keep", "delete", "rotate", "compress",
+                                                   "pictures", "protect", "unprotect"))
+    p.add_argument("--pages", default="", help='pages, e.g. "1-3,7,10-end"')
+    p.add_argument("--split", choices=("every", "ranges", "chunks"), default="every")
+    p.add_argument("--chunk", type=int, default=2, help="pages per file with --split chunks")
+    p.add_argument("--angle", type=int, choices=(90, 180, 270), default=90)
+    p.add_argument("--level", choices=("strong", "balanced", "light"), default="balanced")
+    p.add_argument("--picture-format", choices=("PNG", "JPEG"), default="PNG")
+    p.add_argument("--dpi", type=int, default=150)
+    p.add_argument("--password", default="", help="to open a protected PDF, or the new password")
+    p.add_argument("--name", default="", help="file name of the merged PDF")
+
     p = sub.add_parser("rename", help="give the folders inside a folder sequential names")
     p.add_argument("folder", type=Path, nargs="?", default=Path("."))
     p.add_argument("--code", default="{n} - {name}", help='naming code, e.g. "PRJ-{year}-{n:3} {name}"')
@@ -228,7 +257,7 @@ def run_files(args) -> int:
     if problem:
         print(f"[!] {problem}", file=sys.stderr)
         return 2
-    files = collect(args.inputs, _extensions(args.command))
+    files = collect(args.inputs, _extensions(args.command, args))
     if not files:
         print("[!] No file this tool can open was found.", file=sys.stderr)
         return 2

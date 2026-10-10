@@ -64,6 +64,8 @@ class FileQueuePanel(QWidget):
     START_LABEL = "Start"
     ITEM_WORD = "pictures"          # used in the file dialogs: "Choose pictures"
     RUNNING_LABEL = "Working..."
+    #: keys of :data:`promak.core.dependencies.TOOL_COMPONENTS` the tool needs
+    COMPONENTS: Sequence[str] = ()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -79,6 +81,7 @@ class FileQueuePanel(QWidget):
         self._build_ui()
         self.load_settings()
         self._update_buttons()
+        self.check_components()
 
     # ==================================================================
     # interface
@@ -286,6 +289,20 @@ class FileQueuePanel(QWidget):
     def validate_before_start(self) -> Optional[str]:
         """Return a message when the run must not start."""
         return None
+
+    def missing_components_message(self) -> str:
+        """What is missing for this tool, in one sentence ('' when nothing)."""
+        if not self.COMPONENTS:
+            return ""
+        from promak.core.dependencies import missing_message, missing_tool_dependencies
+
+        return missing_message(missing_tool_dependencies(list(self.COMPONENTS)))
+
+    def check_components(self) -> None:
+        """Warn under the title when a component the tool needs is missing."""
+        message = self.missing_components_message()
+        if message:
+            self.show_notice(message, "warning")
 
     def on_job_selected(self, job: Optional[FileJob]) -> None:
         """Called when the selected row changes (used for the preview)."""
@@ -587,7 +604,7 @@ class FileQueuePanel(QWidget):
         if not pending:
             QMessageBox.information(self, "Queue empty", "Add at least one file before starting.")
             return
-        problem = self.validate_before_start()
+        problem = self.missing_components_message() or self.validate_before_start()
         if problem:
             QMessageBox.warning(self, "Check the options", problem)
             return

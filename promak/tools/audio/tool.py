@@ -10,9 +10,9 @@ class AudioTool(PromakTool):
         id="audio",
         name="Audio toolbox",
         summary="Convert, even out the volume, trim and split sound files - also the sound of videos.",
-        category="Audio",
+        category="Video and sound",
         icon="♪",
-        order=50,
+        order=14,
         tags=("audio", "mp3", "convert", "normalise", "split"),
     )
 

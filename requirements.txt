@@ -11,3 +11,7 @@ faster-whisper>=1.0.0   # local, free speech-to-text
 # --- tools 2 and 3: the picture tools ------------------------------------
 Pillow>=10.0            # opening and saving pictures
 vtracer>=0.6            # turns a picture into real vector shapes (SVG)
+
+# --- Promak 0.5 tools -------------------------------------------------------
+pikepdf>=8.0            # PDF pages: merge, split, rotate, passwords (MPL-2.0)
+pypdfium2>=4.20         # PDF pages drawn as pictures (Apache-2.0 / BSD-3)

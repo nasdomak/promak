@@ -10,9 +10,9 @@ class VideoToolsTool(PromakTool):
         id="videotools",
         name="Video toolbox",
         summary="Convert, compress and trim videos, or take pictures out of them.",
-        category="Video",
+        category="Video and sound",
         icon="✂",
-        order=15,
+        order=12,
         tags=("video", "mp4", "compress", "trim", "frames"),
     )
 

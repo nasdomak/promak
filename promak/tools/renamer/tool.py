@@ -10,9 +10,9 @@ class RenamerTool(PromakTool):
         id="renamer",
         name="Number folders",
         summary="Give the folders inside a folder names in sequence: 01, 02, 03...",
-        category="Files",
+        category="Files and folders",
         icon="№",
-        order=60,
+        order=70,
         tags=("folders", "rename", "sequence", "numbering"),
     )
 
