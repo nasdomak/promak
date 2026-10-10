@@ -77,3 +77,52 @@ def test_audio_from_a_video(tmp_path):
     assert job.stage is FileStage.DONE, job.error
     facts = media_facts(job.output)
     assert facts.has_audio and not facts.has_video
+
+
+# ------------------------------------------------------------ video toolbox
+from promak.tools.videotools.engine import (  # noqa: E402
+    JOB_COPY,
+    JOB_FRAMES,
+    JOB_TARGET,
+    VideoOptions,
+    VideoToolsBatch,
+    target_video_kbps,
+)
+
+
+def test_target_bitrate():
+    assert 1000 < target_video_kbps(25, 120, True) < 1700
+    from promak.core.media import MediaError
+
+    with pytest.raises(MediaError):
+        target_video_kbps(1, 3600, True)
+
+
+@needs_ffmpeg
+def test_video_convert_smaller_and_trimmed(tmp_path):
+    clip = _clip(tmp_path / "clip.mkv", seconds=4)
+    job = FileJob(source=clip, destination=tmp_path / "out")
+    summary = VideoToolsBatch(VideoOptions(max_height=120, end="0:02")).run([job])
+    assert summary["done"] == 1, job.error
+    facts = media_facts(job.output)
+    assert job.output.suffix == ".mp4" and facts.height == 120 and facts.width == 160
+    assert 1.5 < facts.duration < 2.5
+
+
+@needs_ffmpeg
+def test_video_target_copy_and_frames(tmp_path):
+    clip = _clip(tmp_path / "clip.mp4", seconds=4)
+    target = FileJob(source=clip, destination=tmp_path / "small")
+    VideoToolsBatch(VideoOptions(job=JOB_TARGET, target_mb=1, no_sound=True)).run([target])
+    assert target.stage is FileStage.DONE, target.error
+    assert target.output.stat().st_size < 1024 * 1024
+    assert not media_facts(target.output).has_audio
+
+    copy = FileJob(source=clip, destination=tmp_path / "cut")
+    VideoToolsBatch(VideoOptions(job=JOB_COPY, start="0:01")).run([copy])
+    assert copy.stage is FileStage.DONE, copy.error
+
+    frames = FileJob(source=clip, destination=tmp_path)
+    VideoToolsBatch(VideoOptions(job=JOB_FRAMES, frame_every=1)).run([frames])
+    assert frames.stage is FileStage.DONE, frames.error
+    assert 3 <= len(list(frames.output.glob("*.jpg"))) <= 5
