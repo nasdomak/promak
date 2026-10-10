@@ -77,8 +77,21 @@ def _own_taskbar_entry() -> None:
         log.debug("Could not set the taskbar identity", exc_info=True)
 
 
+def _give_streams() -> None:
+    """A program started without a console has no stdout/stderr at all.
+
+    Libraries that print progress bars (the model downloads, for one) would
+    crash on that; they get a sink that swallows what they print instead.
+    """
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))  # noqa: SIM115 - lives as long as Promak
+
+
 def main(argv: list[str] | None = None) -> int:
     from promak import cli
+
+    _give_streams()
 
     command_line = list(sys.argv if argv is None else argv)[1:]
     if cli.wants_cli(command_line):
@@ -132,11 +145,11 @@ def _self_test(window, report: "Path", icon) -> int:
 
     Writes what it found to ``report`` and quits without showing anything.
     """
-    from promak.core.dependencies import check_dependencies, image_dependencies
+    from promak.core.dependencies import check_dependencies, image_dependencies, tool_dependencies
     from promak.core.tool_registry import BUILT_IN_TOOLS, registry
 
     tools = [tool.info.id for tool in registry.tools]
-    components = check_dependencies() + image_dependencies()
+    components = check_dependencies() + image_dependencies() + tool_dependencies()
     lines = [
         f"tools={','.join(tools)}",
         f"icon={'ok' if not icon.isNull() else 'missing'}",

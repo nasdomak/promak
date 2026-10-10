@@ -12,7 +12,7 @@ class ShrinkTool(PromakTool):
         summary="Squeeze JPG, PNG, WEBP and TIFF files without changing their format.",
         category="Pictures",
         icon="⬇",
-        order=30,
+        order=32,
         tags=("images", "compress", "jpeg", "png", "web"),
     )
 

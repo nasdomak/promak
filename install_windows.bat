@@ -45,13 +45,13 @@ echo [2/4] Updating pip...
 if errorlevel 1 goto :failed
 
 echo [3/4] Installing Promak and its components...
-echo       ^(this downloads around 1 GB the first time, please wait^)
+echo       ^(this downloads around 1.5 GB the first time, please wait^)
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 goto :failed
 
 echo.
 echo [4/4] Checking that everything really works...
-".venv\Scripts\python.exe" -c "import PySide6, yt_dlp, curl_cffi, faster_whisper, PIL, vtracer; from promak.core.dependencies import check_dependencies, image_dependencies; [print('   ', d.label, '->', 'OK' if d.available else 'MISSING') for d in check_dependencies() + image_dependencies()]"
+".venv\Scripts\python.exe" -c "import PySide6, yt_dlp, curl_cffi, faster_whisper, PIL, vtracer, pikepdf, pypdfium2, send2trash, imagehash, rapidocr, onnxruntime, docx, openpyxl, segno, barcode, pyzipper, py7zr, rembg, sentencepiece, ctranslate2; from promak.core.dependencies import check_dependencies, image_dependencies, tool_dependencies; [print('   ', d.label, '->', 'OK' if d.available else 'MISSING') for d in check_dependencies() + image_dependencies() + tool_dependencies()]"
 if errorlevel 1 (
     echo.
     echo [X] The components were installed but cannot be loaded.

@@ -61,9 +61,14 @@ class FileQueuePanel(QWidget):
     FILE_DIALOG_FILTER = "Pictures (*.png *.jpg *.jpeg *.bmp *.gif *.tif *.tiff *.webp);;All files (*)"
     ACCEPTED_EXTENSIONS: Sequence[str] = RASTER_EXTENSIONS
     EXTRA_COLUMNS: Sequence[str] = ()
+    EXTRA_COLUMN_WIDTH = 66
     START_LABEL = "Start"
     ITEM_WORD = "pictures"          # used in the file dialogs: "Choose pictures"
     RUNNING_LABEL = "Working..."
+    #: keys of :data:`promak.core.dependencies.TOOL_COMPONENTS` the tool needs
+    COMPONENTS: Sequence[str] = ()
+    #: True for tools where the order of the queue matters (merging, GIFs...)
+    REORDERABLE = False
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -79,6 +84,7 @@ class FileQueuePanel(QWidget):
         self._build_ui()
         self.load_settings()
         self._update_buttons()
+        self.check_components()
 
     # ==================================================================
     # interface
@@ -197,13 +203,16 @@ class FileQueuePanel(QWidget):
         label = QLabel("Queue")
         label.setObjectName("SectionLabel")
         layout.addWidget(label)
-        layout.addLayout(queue_buttons((
+        actions = [
             ("Change folder", self._change_folder_for_selection),
             ("Open folder", self._open_selected_folder),
             ("Retry failed", self._retry_failed),
             ("Remove selected", self._remove_selected),
             ("Clear finished", self._clear_finished),
-        )))
+        ]
+        if self.REORDERABLE:
+            actions += [("Move up", lambda: self.move_selected(-1)), ("Move down", lambda: self.move_selected(1))]
+        layout.addLayout(queue_buttons(actions, per_row=4 if self.REORDERABLE else 3))
 
         self._columns = ["File", *self.EXTRA_COLUMNS, "Destination", "Step", "Progress", "Details"]
         self.COL_NAME = 0
@@ -223,7 +232,7 @@ class FileQueuePanel(QWidget):
         for column in range(1, len(self._columns)):
             view.setSectionResizeMode(column, QHeaderView.Interactive)
         for index in range(len(self.EXTRA_COLUMNS)):
-            self.table.setColumnWidth(1 + index, 66)
+            self.table.setColumnWidth(1 + index, self.EXTRA_COLUMN_WIDTH)
         self.table.setColumnWidth(self.COL_DESTINATION, 110)
         self.table.setColumnWidth(self.COL_STEP, 72)
         self.table.setColumnWidth(self.COL_PROGRESS, 80)
@@ -286,6 +295,20 @@ class FileQueuePanel(QWidget):
     def validate_before_start(self) -> Optional[str]:
         """Return a message when the run must not start."""
         return None
+
+    def missing_components_message(self) -> str:
+        """What is missing for this tool, in one sentence ('' when nothing)."""
+        if not self.COMPONENTS:
+            return ""
+        from promak.core.dependencies import missing_message, missing_tool_dependencies
+
+        return missing_message(missing_tool_dependencies(list(self.COMPONENTS)))
+
+    def check_components(self) -> None:
+        """Warn under the title when a component the tool needs is missing."""
+        message = self.missing_components_message()
+        if message:
+            self.show_notice(message, "warning")
 
     def on_job_selected(self, job: Optional[FileJob]) -> None:
         """Called when the selected row changes (used for the preview)."""
@@ -513,6 +536,19 @@ class FileQueuePanel(QWidget):
         self._rebuild_table()
         self._update_buttons()
 
+    def move_selected(self, delta: int) -> None:
+        """Move the selected file up (-1) or down (+1) in the queue."""
+        jobs = self._selected_jobs()
+        if len(jobs) != 1 or (self._worker and self._worker.isRunning()):
+            return
+        index = self._jobs.index(jobs[0])
+        target = index + delta
+        if not 0 <= target < len(self._jobs):
+            return
+        self._jobs[index], self._jobs[target] = self._jobs[target], self._jobs[index]
+        self._rebuild_table()
+        self.table.selectRow(target)
+
     def _retry_failed(self) -> None:
         count = 0
         for job in self._jobs:
@@ -587,7 +623,7 @@ class FileQueuePanel(QWidget):
         if not pending:
             QMessageBox.information(self, "Queue empty", "Add at least one file before starting.")
             return
-        problem = self.validate_before_start()
+        problem = self.missing_components_message() or self.validate_before_start()
         if problem:
             QMessageBox.warning(self, "Check the options", problem)
             return

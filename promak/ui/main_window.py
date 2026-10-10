@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
+from typing import Dict, List
 
 from PySide6.QtCore import QByteArray, QSize, Qt
 from PySide6.QtGui import QPixmap
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -30,6 +31,10 @@ from promak.ui.theme import other_theme, palette, stylesheet
 from promak.ui.theme_icons import switch_icon
 
 log = logging.getLogger(__name__)
+
+#: where a sidebar row keeps its group name (headings only) and its search words
+HEADING_ROLE = Qt.UserRole + 1
+SEARCH_ROLE = Qt.UserRole + 2
 
 
 class MainWindow(QMainWindow):
@@ -99,10 +104,17 @@ class MainWindow(QMainWindow):
 
         subtitle = QLabel("Free productivity toolbox")
         subtitle.setObjectName("SidebarSubtitle")
-        section = QLabel("TOOLS")
-        section.setObjectName("SidebarSection")
         layout.addWidget(subtitle)
-        layout.addWidget(section)
+        self.search_input = QLineEdit()
+        self.search_input.setObjectName("ToolSearch")
+        self.search_input.setPlaceholderText("Find a tool...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setToolTip("Type a word - pdf, photo, rename, sound... - to see only the tools that match.")
+        self.search_input.textChanged.connect(self.filter_tools)
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(16, 8, 16, 6)
+        search_row.addWidget(self.search_input)
+        layout.addLayout(search_row)
 
         self.tool_list = QListWidget()
         self.tool_list.setObjectName("ToolList")
@@ -151,26 +163,63 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(placeholder)
             return
 
+        category = None
         for tool in tools:
+            if tool.info.category != category:
+                # a heading that cannot be selected, one per group of tools
+                category = tool.info.category
+                heading = QListWidgetItem(category.upper())
+                heading.setFlags(Qt.NoItemFlags)
+                heading.setData(HEADING_ROLE, category)
+                self.tool_list.addItem(heading)
             label = f"  {tool.info.icon}  {tool.info.name}".rstrip()
             item = QListWidgetItem(label)
             item.setToolTip(tool.info.summary)
             item.setData(Qt.UserRole, tool.info.id)
+            item.setData(SEARCH_ROLE, " ".join((tool.info.name, tool.info.summary, tool.info.category,
+                                                *tool.info.tags)).casefold())
+            item.setData(HEADING_ROLE, None)
             self.tool_list.addItem(item)
             widget = tool.create_widget(self)
             self._pages[tool.info.id] = self.stack.addWidget(widget)
 
         last = self.config.get("app.last_tool")
-        index = next(
-            (row for row in range(self.tool_list.count())
-             if self.tool_list.item(row).data(Qt.UserRole) == last),
-            0,
-        )
+        rows = self.tool_rows()
+        index = next((row for row in rows if self.tool_list.item(row).data(Qt.UserRole) == last), rows[0])
         self.tool_list.setCurrentRow(index)
+
+    def tool_rows(self) -> List[int]:
+        """The rows of the sidebar that are tools (not group headings)."""
+        return [row for row in range(self.tool_list.count())
+                if self.tool_list.item(row).data(Qt.UserRole)]
+
+    def filter_tools(self, text: str) -> None:
+        """Show only the tools whose name, summary or keywords hold every word typed."""
+        words = text.casefold().split()
+        shown_in = set()
+        for row in self.tool_rows():
+            item = self.tool_list.item(row)
+            haystack = item.data(SEARCH_ROLE) or ""
+            visible = all(word in haystack for word in words)
+            item.setHidden(not visible)
+            if visible:
+                shown_in.add(self._category_of(row))
+        for row in range(self.tool_list.count()):
+            item = self.tool_list.item(row)
+            category = item.data(HEADING_ROLE)
+            if category:
+                item.setHidden(category not in shown_in)
+
+    def _category_of(self, row: int) -> str:
+        for above in range(row, -1, -1):
+            category = self.tool_list.item(above).data(HEADING_ROLE)
+            if category:
+                return category
+        return ""
 
     def _on_tool_selected(self, row: int) -> None:
         item = self.tool_list.item(row)
-        if item is None:
+        if item is None or not item.data(Qt.UserRole):
             return
         tool_id = item.data(Qt.UserRole)
         self.stack.setCurrentIndex(self._pages.get(tool_id, 0))

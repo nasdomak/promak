@@ -109,12 +109,15 @@ def run_ffmpeg(
     cancel_event: Optional[threading.Event] = None,
     cleanup: Sequence[Path] = (),
     span: tuple = (0.0, 100.0),
+    cwd: Optional[Path] = None,
 ) -> None:
     """Run FFmpeg with ``arguments`` (input and output included).
 
     ``span`` maps FFmpeg's 0-100 % onto part of the job's bar, for tools
     that run FFmpeg twice.  Files in ``cleanup`` are deleted when the run
-    fails or is cancelled, so no half-written file is left behind.
+    fails or is cancelled, so no half-written file is left behind.  ``cwd``
+    is the folder FFmpeg runs in: filters that take file names (subtitles)
+    are given short names inside it, so no path has to be escaped.
     """
     exe = require_ffmpeg()
     command: List[str] = [exe, "-hide_banner", "-loglevel", "error", "-y", "-nostdin",
@@ -122,7 +125,7 @@ def run_ffmpeg(
     log.debug("FFmpeg: %s", " ".join(command))
     low, high = span
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                               errors="replace", bufsize=1, **SUBPROCESS_QUIET)
+                               errors="replace", bufsize=1, cwd=str(cwd) if cwd else None, **SUBPROCESS_QUIET)
     errors: List[str] = []
     reader = threading.Thread(target=lambda: errors.extend(process.stderr or []), daemon=True)
     reader.start()
@@ -174,3 +177,37 @@ def explain(stderr: str) -> str:
     if "does not contain any stream" in lowered or "matches no streams" in lowered:
         return "The file has no part of the kind asked for (for example no sound)."
     return text.splitlines()[-1][:300]
+
+
+_CREATION_RE = re.compile(r"creation_time\s*:\s*(\d{4}-\d\d-\d\d)[T ](\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:?\d\d)?")
+
+
+def creation_time(path: Path):
+    """When a video (or sound file) was recorded, from its own metadata.
+
+    Cameras and phones write a ``creation_time`` in UTC; it is turned into
+    the computer's local time.  Returns ``None`` when the file has none.
+    """
+    from datetime import datetime, timezone
+
+    exe = ffmpeg_exe()
+    if not exe:
+        return None
+    try:
+        result = subprocess.run([exe, "-hide_banner", "-i", str(path)], capture_output=True,
+                                text=True, errors="replace", timeout=60, **SUBPROCESS_QUIET)
+    except Exception:  # pragma: no cover - depends on the machine
+        return None
+    match = _CREATION_RE.search(result.stderr or "")
+    if not match:
+        return None
+    try:
+        when = datetime.strptime(f"{match.group(1)} {match.group(2)}", "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    if when.year < 1971:  # "1970-01-01" or "1904-01-01": the camera did not know
+        return None
+    zone = match.group(4)
+    if zone and zone != "Z":
+        return when  # already local time with an offset: keep the clock as written
+    return when.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)

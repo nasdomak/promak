@@ -1,4 +1,4 @@
-"""Giving the folders inside a folder sequential names.
+"""Giving the folders - or the files - inside a folder sequential names.
 
     Holiday            ->  01 - Holiday
     Birthday           ->  02 - Birthday
@@ -14,10 +14,17 @@ is touched:
 
 Every renaming is written to a small journal, and :func:`undo_renames`
 puts the old names back.  Nothing here imports Qt.
+
+The same engine renames files (``RenameOptions.kind = KIND_FILES``): the
+name is built for the part before the extension, and the extension is
+always put back, so a file never stops opening.  Files get four more
+pieces: ``{ext}``, ``{taken}`` (the date a photo was taken), ``{width}``
+and ``{height}``.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -37,12 +44,14 @@ ORDER_NAME = "name"
 ORDER_MODIFIED = "modified"
 ORDER_CREATED = "created"
 ORDER_MANUAL = "manual"
+ORDER_TAKEN = "taken"          # files: the date a photo was taken
 
 ORDERS = [
     ("By name (2 before 10)", ORDER_NAME),
     ("By date changed, oldest first", ORDER_MODIFIED),
     ("By date created, oldest first", ORDER_CREATED),
     ("As I arrange them", ORDER_MANUAL),
+    ("By date taken (photos), oldest first", ORDER_TAKEN),
 ]
 
 STYLE_NUMBER_NAME = "number_name"
@@ -74,6 +83,32 @@ CODE_PIECES = [
     ("{total}", "how many folders are being numbered"),
 ]
 
+#: the pieces of a code for files: the same, plus what a file knows of itself
+FILE_CODE_PIECES = [
+    ("{n}", "the number (digits as set below); {n:3} always 3 digits: 001"),
+    ("{name}", "the old name without its extension (and without its old number, if ticked)"),
+    ("{original}", "the old name without its extension, exactly as it is"),
+    ("{name:upper}", "the old name in CAPITALS; also :lower and :title"),
+    ("{ext}", "the extension: jpg, pdf... (the extension is always kept at the end anyway)"),
+    ("{taken}", "the date a photo was taken: 2026-10-10; {taken:time} adds the hour"),
+    ("{width} {height}", "the size of a picture in pixels: 4032 3024"),
+    ("{date}", "the date the file was last changed: 2026-10-10"),
+    ("{year} {month} {day}", "the same date in pieces: 2026 10 10"),
+    ("{letter}", "A, B, C ... Z, AA; {letter:lower} for a, b, c"),
+    ("{roman}", "I, II, III, IV ...; {roman:lower} for i, ii, iii"),
+    ("{today}", "today's date: 2026-10-10"),
+    ("{parent}", "the name of the folder that holds them"),
+    ("{total}", "how many files are being renamed"),
+]
+
+FILE_CODE_EXAMPLES = [
+    "{taken} {n:3}",
+    "{parent} {n:3}",
+    "{taken:%Y%m%d}_{name}",
+    "{name} {width}x{height}",
+    "IMG-{n:4}",
+]
+
 CODE_EXAMPLES = [
     "{n} - {name}",
     "PRJ-{year}-{n:3} {name}",
@@ -85,7 +120,10 @@ CODE_EXAMPLES = [
 
 _PIECE = re.compile(r"\{(\w+)(?::([^{}]*))?\}")
 _KNOWN_PIECES = {"n", "name", "original", "letter", "roman", "date", "year", "month", "day",
-                 "today", "parent", "total"}
+                 "today", "parent", "total", "ext", "taken", "width", "height"}
+
+KIND_FOLDERS = "folders"
+KIND_FILES = "files"
 
 #: a number already at the start of a name, with what separates it
 _LEADING_NUMBER = re.compile(r"^\s*\d+\s*[-_.)\]]*\s*")
@@ -109,6 +147,9 @@ class RenameOptions:
     drop_old_number: bool = True    # "03 - Holiday" becomes "01 - Holiday", not "01 - 03 - Holiday"
     include_hidden: bool = False
     pattern: str = "{n} - {name}"   # used by STYLE_CUSTOM
+    kind: str = KIND_FOLDERS        # or KIND_FILES
+    lower_extension: bool = False   # files: ".JPG" becomes ".jpg"
+    extensions: str = ""            # files: only these, e.g. "jpg, png" (empty = every file)
 
     def validate(self) -> Optional[str]:
         if self.style not in {value for _label, value in STYLES}:
@@ -167,6 +208,37 @@ def _created(path: Path) -> float:
     return getattr(stat, "st_birthtime", None) or stat.st_ctime
 
 
+def extension_filter(text: str) -> List[str]:
+    """``"jpg, .PNG pdf"`` -> ``[".jpg", ".png", ".pdf"]``."""
+    return [("." + part.lstrip(".")).lower() for part in re.split(r"[\s,;]+", text or "") if part.strip(".")]
+
+
+def list_files(parent: Path, order: str = ORDER_NAME, descending: bool = False,
+               include_hidden: bool = False, extensions: Sequence[str] = ()) -> List[Path]:
+    """The files directly inside ``parent`` (only ``extensions`` when given), in order."""
+    parent = Path(parent)
+    if not parent.is_dir():
+        raise RenameError(f"This folder does not exist: {parent}")
+    try:
+        files = [p for p in parent.iterdir() if p.is_file()]
+    except OSError as exc:
+        raise RenameError(f"The folder cannot be read: {exc}") from exc
+    if not include_hidden:
+        files = [p for p in files if not p.name.startswith(".") and not _is_hidden(p)]
+    wanted = tuple(e.lower() for e in extensions)
+    if wanted:
+        files = [p for p in files if p.suffix.lower() in wanted]
+    return sort_folders(files, order, descending)
+
+
+def list_entries(parent: Path, options: "RenameOptions") -> List[Path]:
+    """Folders or files, as ``options.kind`` says."""
+    if options.kind == KIND_FILES:
+        return list_files(parent, options.order, options.descending, options.include_hidden,
+                          extension_filter(options.extensions))
+    return list_folders(parent, options.order, options.descending, options.include_hidden)
+
+
 def list_folders(parent: Path, order: str = ORDER_NAME, descending: bool = False,
                  include_hidden: bool = False) -> List[Path]:
     """The folders directly inside ``parent``, in the order asked for."""
@@ -190,6 +262,10 @@ def sort_folders(folders: Iterable[Path], order: str, descending: bool = False) 
         key = lambda p: (p.stat().st_mtime, natural_key(p.name))  # noqa: E731
     elif order == ORDER_CREATED:
         key = lambda p: (_created(p), natural_key(p.name))  # noqa: E731
+    elif order == ORDER_TAKEN:
+        def key(p):
+            taken = file_facts(p)[0] if p.is_file() else None
+            return (taken.timestamp() if taken else p.stat().st_mtime, natural_key(p.name))
     else:
         key = lambda p: natural_key(p.name)  # noqa: E731
     return sorted(folders, key=key, reverse=descending)
@@ -249,7 +325,7 @@ def check_pattern(pattern: str) -> Optional[str]:
     if re.search(r'[<>:"/\\|?*]', _PIECE.sub("", pattern)):
         return 'The code cannot contain  < > : " / \\ | ? *'
     if not _PIECE.search(pattern):
-        return "The code needs at least one piece such as {n}, or every folder would get the same name."
+        return "The code needs at least one piece such as {n}, or everything would get the same name."
     return None
 
 
@@ -283,26 +359,77 @@ def _changed(folder: Path) -> datetime:
         return datetime.now()
 
 
+def _date_text(when: datetime, modifier: str) -> str:
+    if "%" in modifier:
+        try:
+            return when.strftime(modifier)
+        except ValueError:
+            return when.strftime("%Y-%m-%d")
+    return when.strftime("%Y-%m-%d %H.%M.%S" if modifier == "time" else "%Y-%m-%d")
+
+
+@functools.lru_cache(maxsize=4096)
+def _picture_facts(path: str, stamp: float):
+    """Date taken and size of a picture, read once per version of the file."""
+    from promak.core.imaging import RASTER_EXTENSIONS, photo_facts
+
+    if Path(path).suffix.lower() not in RASTER_EXTENSIONS + (".heic", ".heif"):
+        return None, 0, 0
+    return photo_facts(Path(path))
+
+
+def file_facts(path: Path):
+    """``(date taken or None, width, height)`` for a picture; ``(None, 0, 0)`` otherwise."""
+    try:
+        stamp = path.stat().st_mtime
+    except OSError:
+        return None, 0, 0
+    return _picture_facts(str(path), stamp)
+
+
+def _own_name(entry: Path, options: RenameOptions) -> str:
+    """The part of the name a code works on: a file's name without its extension."""
+    return entry.stem if options.kind == KIND_FILES else entry.name
+
+
+def _extension(entry: Path, options: RenameOptions) -> str:
+    if options.kind != KIND_FILES:
+        return ""
+    return entry.suffix.lower() if options.lower_extension else entry.suffix
+
+
 def name_from_pattern(folder: Path, value: int, digits: int, total: int, options: RenameOptions) -> str:
-    """Fill the custom code for one folder."""
-    base = folder.name
+    """Fill the custom code for one folder (or one file, without its extension)."""
+    own = _own_name(folder, options)
+    base = own
     if options.drop_old_number:
         base = _LEADING_NUMBER.sub("", base) or base
     when = _changed(folder)
+    facts = file_facts(folder) if options.kind == KIND_FILES and re.search(r"\{(taken|width|height)", options.pattern) \
+        else (None, 0, 0)
 
     def fill(match) -> str:
-        key, modifier = match.group(1), (match.group(2) or "").strip().lower()
+        key, modifier = match.group(1), (match.group(2) or "").strip()
+        if "%" not in modifier:
+            modifier = modifier.lower()
         if key == "n":
             return number_text(value, int(modifier) if modifier.isdigit() else digits)
         if key in ("name", "original"):
-            text = base if key == "name" else folder.name
+            text = base if key == "name" else own
             return {"upper": text.upper(), "lower": text.lower(), "title": text.title()}.get(modifier, text)
         if key == "letter":
             return letters(value, modifier == "lower")
         if key == "roman":
             return roman(value, modifier == "lower")
         if key == "date":
-            return when.strftime("%Y-%m-%d")
+            return _date_text(when, modifier)
+        if key == "taken":
+            return _date_text(facts[0] or when, (match.group(2) or "").strip())
+        if key == "ext":
+            return folder.suffix.lstrip(".").lower() if options.kind == KIND_FILES else ""
+        if key in ("width", "height"):
+            size = facts[1] if key == "width" else facts[2]
+            return str(size) if size else ""
         if key in ("year", "month", "day"):
             return when.strftime({"year": "%Y", "month": "%m", "day": "%d"}[key])
         if key == "today":
@@ -326,8 +453,8 @@ def plan_renames(folders: Sequence[Path], options: RenameOptions) -> List[Rename
         if options.style == STYLE_CUSTOM:
             new_name = name_from_pattern(folder, value, digits, len(folders), options)
         else:
-            new_name = new_name_for(folder.name, number_text(value, digits), options)
-        plan.append(Rename(folder, new_name))
+            new_name = new_name_for(_own_name(folder, options), number_text(value, digits), options)
+        plan.append(Rename(folder, new_name + _extension(folder, options)))
 
     # two folders must not end up with the same name (Windows ignores case)
     seen = {}
@@ -358,7 +485,8 @@ def _same_entry(a: Path, b: Path) -> bool:
 
 
 # ---------------------------------------------------------------- applying
-def apply_renames(plan: Sequence[Rename], journal_dir: Optional[Path] = None) -> Journal:
+def apply_renames(plan: Sequence[Rename], journal_dir: Optional[Path] = None,
+                  journal_name: str = "renamer-last.json") -> Journal:
     """Rename every folder of the plan that has no problem and really changes.
 
     First every folder gets a temporary name, then its final one, so names
@@ -389,8 +517,8 @@ def apply_renames(plan: Sequence[Rename], journal_dir: Optional[Path] = None) ->
         if isinstance(exc, RenameError):
             raise
         raise RenameError(_explain(exc)) from exc
-    _save_journal(journal, journal_dir)
-    log.info("Renamed %d folder(s) in %s", len(journal.moves), parent)
+    _save_journal(journal, journal_dir, journal_name)
+    log.info("Renamed %d item(s) in %s", len(journal.moves), parent)
     return journal
 
 
@@ -407,31 +535,31 @@ def _roll_back(staged, finished) -> None:
 def _explain(exc: Exception) -> str:
     if isinstance(exc, PermissionError):
         return (
-            "Windows refused to rename a folder. A file inside it is probably open in "
-            "another program (or the folder is open in Explorer): close it and retry. "
+            "Windows refused to rename. The file (or a file inside the folder) is probably "
+            "open in another program, or the folder is open in Explorer: close it and retry. "
             "Nothing was changed."
         )
     return f"The folders could not be renamed ({exc}). Nothing was changed."
 
 
 # ------------------------------------------------------------------- undo
-def _journal_file(journal_dir: Optional[Path]) -> Path:
+def _journal_file(journal_dir: Optional[Path], name: str = "renamer-last.json") -> Path:
     folder = Path(journal_dir) if journal_dir else app_data_dir()
     folder.mkdir(parents=True, exist_ok=True)
-    return folder / "renamer-last.json"
+    return folder / name
 
 
-def _save_journal(journal: Journal, journal_dir: Optional[Path]) -> None:
+def _save_journal(journal: Journal, journal_dir: Optional[Path], name: str = "renamer-last.json") -> None:
     try:
-        _journal_file(journal_dir).write_text(
+        _journal_file(journal_dir, name).write_text(
             json.dumps(journal.__dict__, indent=2, ensure_ascii=False), encoding="utf-8"
         )
     except OSError:  # pragma: no cover - undo is a bonus, not a requirement
         log.warning("Could not write the undo journal", exc_info=True)
 
 
-def last_journal(journal_dir: Optional[Path] = None) -> Optional[Journal]:
-    path = _journal_file(journal_dir)
+def last_journal(journal_dir: Optional[Path] = None, name: str = "renamer-last.json") -> Optional[Journal]:
+    path = _journal_file(journal_dir, name)
     if not path.exists():
         return None
     try:
@@ -441,7 +569,7 @@ def last_journal(journal_dir: Optional[Path] = None) -> Optional[Journal]:
         return None
 
 
-def undo_renames(journal: Journal, journal_dir: Optional[Path] = None) -> int:
+def undo_renames(journal: Journal, journal_dir: Optional[Path] = None, name: str = "renamer-last.json") -> int:
     """Put back the old names of the last run; returns how many were restored."""
     restored = 0
     problems = []
@@ -463,10 +591,10 @@ def undo_renames(journal: Journal, journal_dir: Optional[Path] = None) -> int:
         os.rename(temporary, old_path)
         restored += 1
     try:
-        _journal_file(journal_dir).unlink()
+        _journal_file(journal_dir, name).unlink()
     except OSError:
         pass
     if problems:
         log.warning("Undo incomplete: %s", "; ".join(problems))
-        raise RenameError(f"{restored} folder(s) were put back. " + "; ".join(problems) + ".")
+        raise RenameError(f"{restored} name(s) were put back. " + "; ".join(problems) + ".")
     return restored

@@ -202,7 +202,7 @@ def to_black_and_white(im, background: str = "white"):
     a light-coloured logo from disappearing: the threshold follows the
     picture, and the darker side is always the one that becomes the shape.
     """
-    Image = require_pillow()
+    require_pillow()
     grey = flatten(im, background).convert("L")
     threshold = otsu_threshold(grey.histogram())
     binary = grey.point(lambda value, t=threshold: 0 if value <= t else 255, mode="L")
@@ -307,3 +307,48 @@ def describe_dimensions(facts: Optional[ImageFacts]) -> str:
     if facts is None:
         return ""
     return f"{facts.width} x {facts.height}"
+
+
+# ------------------------------------------------------------ photo facts
+_EXIF_DATE_FORMATS = ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y:%m:%d %H:%M", "%Y:%m:%d")
+
+
+def _parse_exif_date(text):
+    from datetime import datetime
+
+    text = str(text or "").strip().strip("\x00")
+    if not text or text.startswith("0000"):
+        return None
+    for fmt in _EXIF_DATE_FORMATS:
+        try:
+            return datetime.strptime(text[: len(datetime(2000, 1, 1).strftime(fmt))], fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def photo_facts(path: Path):
+    """``(date taken or None, width, height)`` of a picture, or ``(None, 0, 0)``.
+
+    Reads only the header, so it is quick even on large photos.  The date is
+    the camera's "date taken" (EXIF DateTimeOriginal), falling back to the
+    EXIF date the picture was last saved.
+    """
+    try:
+        from PIL import Image
+    except ImportError:  # pragma: no cover
+        return None, 0, 0
+    try:
+        with Image.open(path) as im:
+            width, height = im.size
+            exif = im.getexif()
+            taken = None
+            if exif:
+                sub = exif.get_ifd(0x8769)  # the Exif sub-directory
+                taken = _parse_exif_date(sub.get(36867) or sub.get(36868)) or _parse_exif_date(exif.get(0x0132))
+            orientation = exif.get(0x0112, 1) if exif else 1
+            if orientation in (5, 6, 7, 8):  # shown turned upright
+                width, height = height, width
+            return taken, width, height
+    except Exception:
+        return None, 0, 0

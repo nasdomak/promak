@@ -11,3 +11,20 @@ faster-whisper>=1.0.0   # local, free speech-to-text
 # --- tools 2 and 3: the picture tools ------------------------------------
 Pillow>=10.0            # opening and saving pictures
 vtracer>=0.6            # turns a picture into real vector shapes (SVG)
+
+# --- Promak 0.5 tools -------------------------------------------------------
+pikepdf>=8.0            # PDF pages: merge, split, rotate, passwords (MPL-2.0)
+pypdfium2>=4.20         # PDF pages drawn as pictures (Apache-2.0 / BSD-3)
+send2trash>=1.8         # files go to the Recycle Bin, never deleted outright (BSD-3)
+imagehash>=4.3          # perceptual fingerprints of pictures, for similar photos (BSD-2)
+rapidocr>=3.9           # offline OCR, multilingual model built in (Apache-2.0)
+onnxruntime>=1.17       # runs the OCR and background models (MIT)
+python-docx>=1.1        # Word files read and written (MIT)
+openpyxl>=3.1           # Excel files read and written (MIT)
+segno>=1.5              # QR codes (BSD-3)
+python-barcode>=0.15    # barcodes: EAN, UPC, Code 128... (MIT)
+pyzipper>=0.3.6         # ZIP archives with AES passwords (MIT)
+py7zr>=0.20             # 7z archives (LGPL-2.1, used as a library)
+rembg>=2.0.50           # background removal; model downloaded once (MIT)
+sentencepiece>=0.2      # cuts text for the offline translation packs (Apache-2.0)
+ctranslate2>=4.0        # runs the offline translation packs (MIT; also used by faster-whisper)

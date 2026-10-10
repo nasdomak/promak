@@ -119,14 +119,21 @@ QListWidget#ToolList {{
     padding: 2px 10px;
 }}
 QListWidget#ToolList::item {{
-    padding: 10px 12px;
-    margin: 2px 0;
+    padding: 6px 12px;
+    margin: 1px 0;
     border-radius: 9px;
     color: {text_dim};
 }}
 QListWidget#ToolList::item:hover {{
     background-color: {surface_alt};
     color: {text};
+}}
+QListWidget#ToolList::item:disabled {{
+    color: {text_faint};
+    font-size: 10px;
+    font-weight: 800;
+    padding: 12px 12px 3px 12px;
+    background: transparent;
 }}
 QListWidget#ToolList::item:selected {{
     background-color: {accent};
@@ -328,8 +335,9 @@ QGroupBox::title {{
 }}
 
 /* ===================================================== table ========= */
-QTableWidget {{
+QTableWidget, QTreeWidget, QListWidget#PlainList {{
     background-color: {surface};
+    color: {text};
     alternate-background-color: {surface_sunken};
     border: 1px solid {border};
     border-radius: 10px;
@@ -348,6 +356,11 @@ QHeaderView::section {{
     letter-spacing: 0.3px;
 }}
 QTableWidget::item {{ padding: 6px 7px; border: none; }}
+QTreeWidget::item {{ padding: 4px 4px; border: none; }}
+QTreeWidget::item:selected, QListWidget#PlainList::item:selected {{
+    background-color: {selection};
+    color: {text};
+}}
 QTableCornerButton::section {{ background-color: {surface_alt}; border: none; }}
 
 /* ================================================== progress ========= */
@@ -400,14 +413,14 @@ QSlider:disabled::handle:horizontal {{ border-color: {border_strong}; }}
 /* =============================================== tick boxes ========== */
 QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; color: {text}; }}
 QCheckBox:disabled, QRadioButton:disabled {{ color: {text_faint}; }}
-QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; }}
-QCheckBox::indicator {{
+QCheckBox::indicator, QRadioButton::indicator, QTreeWidget::indicator {{ width: 16px; height: 16px; }}
+QCheckBox::indicator, QTreeWidget::indicator {{
     border: 1px solid {border_strong};
     border-radius: 4px;
     background: {surface};
 }}
-QCheckBox::indicator:hover {{ border-color: {accent}; }}
-QCheckBox::indicator:checked {{
+QCheckBox::indicator:hover, QTreeWidget::indicator:hover {{ border-color: {accent}; }}
+QCheckBox::indicator:checked, QTreeWidget::indicator:checked {{
     background: {accent};
     border-color: {accent};
     image: none;

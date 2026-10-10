@@ -304,6 +304,56 @@ def image_dependencies() -> List[Dependency]:
     ]
 
 
+#: the components of the 0.5 tools: key -> (label, pip name, import name, what for)
+TOOL_COMPONENTS = {
+    "pikepdf": ("pikepdf", "pikepdf", "pikepdf", "reading and writing PDF files"),
+    "pypdfium2": ("pypdfium2", "pypdfium2", "pypdfium2", "drawing PDF pages as pictures"),
+    "send2trash": ("send2trash", "send2trash", "send2trash", "putting files in the Recycle Bin"),
+    "imagehash": ("imagehash", "imagehash", "imagehash", "finding pictures that look alike"),
+    "docx": ("python-docx", "python-docx", "docx", "reading and writing Word files"),
+    "openpyxl": ("openpyxl", "openpyxl", "openpyxl", "reading and writing Excel files"),
+    "segno": ("segno", "segno", "segno", "making QR codes"),
+    "barcode": ("python-barcode", "python-barcode", "barcode", "making barcodes"),
+    "pyzipper": ("pyzipper", "pyzipper", "pyzipper", "ZIP archives with an AES password"),
+    "py7zr": ("py7zr", "py7zr", "py7zr", "7z archives"),
+    "ctranslate2": ("CTranslate2", "ctranslate2", "ctranslate2", "running the translation packs"),
+    "sentencepiece": ("SentencePiece", "sentencepiece", "sentencepiece", "cutting text for the translation packs"),
+    "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
+    "rembg": ("rembg", "rembg", "rembg", "removing the background of pictures"),
+    "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
+}
+
+
+def tool_dependencies(keys: Optional[List[str]] = None) -> List[Dependency]:
+    """Components used by the tools added in Promak 0.5.
+
+    Each tool asks only for the ones it needs, so a missing OCR engine
+    does not make the PDF screen complain.
+    """
+    found = []
+    for key, (label, pip_name, module, purpose) in TOOL_COMPONENTS.items():
+        if keys is not None and key not in keys:
+            continue
+        ok = module_available(module)
+        found.append(Dependency(key, label, pip_name, purpose, ok,
+                                (module_version(pip_name) or "") if ok else ""))
+    return found
+
+
+def missing_tool_dependencies(keys: List[str]) -> List[Dependency]:
+    return [d for d in tool_dependencies(keys) if not d.available]
+
+
+def missing_message(missing: List[Dependency]) -> str:
+    """One sentence that says what is missing and how to install it."""
+    if not missing:
+        return ""
+    names = ", ".join(d.label for d in missing)
+    pips = " ".join(d.pip_name for d in missing)
+    return (f"Missing component: {names} (needed for {missing[0].required_for}). "
+            f"Run install_windows.bat again, or:  pip install -U {pips}")
+
+
 def missing_dependencies() -> List[Dependency]:
     return [d for d in check_dependencies() if not d.available]
 

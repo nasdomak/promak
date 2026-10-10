@@ -53,6 +53,54 @@ def _sample_pictures(folder: Path) -> list:
     return paths
 
 
+def _sample_documents(folder: Path) -> list:
+    """A few small documents for the document tools."""
+    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return []
+    paths = []
+    for name, pages in (("Annual report.pdf", 12), ("Scanned contract.pdf", 3)):
+        sheets = []
+        for number in range(pages):
+            sheet = Image.new("RGB", (620, 877), "white")
+            draw = ImageDraw.Draw(sheet)
+            draw.rectangle((60, 60, 560, 110), fill=(47, 91, 234))
+            for line in range(18):
+                draw.rectangle((60, 150 + line * 34, 520 - (line % 4) * 40, 162 + line * 34), fill=(200, 205, 215))
+            draw.text((60, 830), f"{number + 1}", fill="black")
+            sheets.append(sheet)
+        path = folder / name
+        sheets[0].save(path, "PDF", save_all=True, append_images=sheets[1:])
+        paths.append(path)
+    # stand-ins for the sound and video tools: their names are all the queue shows
+    for name in ("Lesson 1 - Introduction.mp4", "Lesson 2 - Practice.mp4", "Interview.mp3"):
+        (folder / name).write_bytes(b"\0" * 2048)
+        paths.append(folder / name)
+    (folder / "Lesson 1 - Introduction.srt").write_text("1\n00:00:00,000 --> 00:00:02,000\nHello\n", encoding="utf-8")
+    notes = folder / "Meeting notes.md"
+    notes.write_text("# Meeting\n\n- Budget\n- Dates\n", encoding="utf-8")
+    prices = folder / "Price list.csv"
+    prices.write_text("Item;Price\nChair;49,90\nTable;129,00\n", encoding="utf-8")
+    paths += [notes, prices]
+    try:
+        from promak.core.tables import write_xlsx
+
+        write_xlsx(folder / "Budget 2026.xlsx", {"Budget": [["Month", "Spent"], ["January", 1200]]})
+        paths.append(folder / "Budget 2026.xlsx")
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Offer", 1)
+        document.add_paragraph("Thank you for your request.")
+        document.save(str(folder / "Offer.docx"))
+        paths.append(folder / "Offer.docx")
+    except Exception:  # an optional component is missing: fewer samples
+        pass
+    return paths
+
+
 def _fill_video(panel, destination: Path) -> None:
     from promak.tools.video.models import Stage
 
@@ -109,10 +157,13 @@ def main(argv=None) -> int:
     app.processEvents()
 
     destination = _SANDBOX / "Downloads" / "Promak"
-    pictures = _sample_pictures(_SANDBOX / "pictures")
+    pictures = _sample_pictures(_SANDBOX / "pictures") + _sample_documents(_SANDBOX / "documents")
     for index in range(window.stack.count()):
         page = window.stack.widget(index)
-        if hasattr(page, "url_input"):
+        if hasattr(page, "screenshot_sample"):
+            # screens that are not a plain queue fill themselves
+            page.screenshot_sample(_SANDBOX)
+        elif hasattr(page, "url_input"):
             _fill_video(page, destination)
         elif hasattr(page, "set_folder"):
             albums = _SANDBOX / "albums"
@@ -121,12 +172,15 @@ def main(argv=None) -> int:
             page.set_folder(albums)
         elif hasattr(page, "add_files"):
             accepted = tuple(getattr(page, "ACCEPTED_EXTENSIONS", ()))
-            _fill_files(page, [p for p in pictures if p.suffix in accepted], destination)
+            files = [p for p in pictures if p.suffix.lower() in accepted]
+            # documents first, so a document tool does not look like a picture tool
+            files.sort(key=lambda p: p.suffix.lower() in (".png", ".jpg"))
+            _fill_files(page, files, destination)
 
     taken = []
     for theme in ("light", "dark"):
         window.apply_theme(theme)
-        for row in range(window.tool_list.count()):
+        for row in window.tool_rows():
             window.tool_list.setCurrentRow(row)
             tool_id = window.tool_list.item(row).data(256)  # Qt.UserRole
             for _ in range(3):

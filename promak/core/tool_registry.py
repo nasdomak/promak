@@ -18,7 +18,14 @@ from typing import List, Optional, Type
 log = logging.getLogger(__name__)
 
 #: the tools shipped with Promak, used when the folder cannot be listed
-BUILT_IN_TOOLS = ("video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer")
+BUILT_IN_TOOLS = (
+    "video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer",
+    "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert",
+    "sheetmerge", "cleanmeta", "qrcodes", "gifcollage",
+    "subtitles", "silence", "archives", "compare",
+    "shred", "background", "screenrec", "recipes", "watch",
+    "translate",
+)
 
 
 @dataclass(frozen=True)
@@ -44,8 +51,38 @@ class PromakTool(ABC):
     def create_widget(self, parent=None):
         """Return the QWidget shown when the tool is selected."""
 
-    def shutdown(self) -> None:
+    def shutdown(self) -> None:  # noqa: B027 - optional on purpose
         """Release resources before the application quits."""
+
+
+class PanelTool(PromakTool):
+    """A tool whose whole job is showing one screen.
+
+    Most tools only differ by their :class:`ToolInfo` and the screen they
+    show, so they say where the screen lives (``"package.module:Class"``)
+    and this class creates it the first time it is needed, keeps it, and
+    forwards ``shutdown`` and ``has_running_work`` to it.
+    """
+
+    panel: str = ""
+
+    def __init__(self) -> None:
+        self._widget = None
+
+    def create_widget(self, parent=None):
+        if self._widget is None:
+            module_name, _, class_name = self.panel.partition(":")
+            panel_cls = getattr(importlib.import_module(module_name), class_name)
+            self._widget = panel_cls(parent)
+        return self._widget
+
+    def shutdown(self) -> None:
+        if self._widget is not None and hasattr(self._widget, "shutdown"):
+            self._widget.shutdown()
+
+    def has_running_work(self) -> bool:
+        checker = getattr(self._widget, "has_running_work", None)
+        return bool(checker and checker())
 
 
 class ToolRegistry:

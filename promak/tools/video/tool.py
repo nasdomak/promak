@@ -10,7 +10,7 @@ class VideoTool(PromakTool):
         id="video",
         name="Video downloader",
         summary="Download a video from almost any site, extract the MP3 and transcribe it.",
-        category="Media",
+        category="Video and sound",
         icon="▶",
         order=10,
         tags=("video", "audio", "transcription", "download"),
