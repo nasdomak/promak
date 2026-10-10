@@ -259,6 +259,7 @@ class Dependency:
 def check_dependencies() -> List[Dependency]:
     """Report the state of every optional runtime component."""
     yt_ok = module_available("yt_dlp")
+    curl_ok = module_available("curl_cffi")
     whisper_ok = module_available("faster_whisper")
     ffmpeg_ok = ffmpeg_exe() is not None
 
@@ -266,6 +267,10 @@ def check_dependencies() -> List[Dependency]:
         Dependency(
             "yt_dlp", "yt-dlp", "yt-dlp", "downloading videos", yt_ok,
             module_version("yt-dlp") or "" if yt_ok else "",
+        ),
+        Dependency(
+            "curl_cffi", "curl_cffi", "curl_cffi", "reaching sites that only answer a real browser",
+            curl_ok, module_version("curl_cffi") or "" if curl_ok else "",
         ),
         Dependency(
             "ffmpeg", "FFmpeg", "imageio-ffmpeg", "merging video and making MP3", ffmpeg_ok,

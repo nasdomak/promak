@@ -289,3 +289,23 @@ def test_left_column_never_cuts_its_content(qapp, monkeypatch):
     finally:
         window.close()
         window.deleteLater()
+
+
+def test_renamer_screen_previews_and_renames(qapp, tmp_path, monkeypatch):
+    from promak.tools.renamer import panel as renamer_module
+
+    monkeypatch.setattr(renamer_module.QMessageBox, "question",
+                        staticmethod(lambda *a, **k: renamer_module.QMessageBox.Yes))
+    root = tmp_path / "albums"
+    for name in ("Summer", "Winter 2", "Winter 10"):
+        (root / name).mkdir(parents=True)
+    page = renamer_module.RenamerPanel()
+    page.set_folder(root)
+    assert page.table.rowCount() == 3
+    assert page.table.item(0, 1).text() == "01 - Summer"
+    assert page.start_button.isEnabled()
+    page._apply()
+    assert sorted(p.name for p in root.iterdir()) == ["01 - Summer", "02 - Winter 2", "03 - Winter 10"]
+    assert page.undo_button.isEnabled()
+    page._undo()
+    assert sorted(p.name for p in root.iterdir()) == ["Summer", "Winter 10", "Winter 2"]

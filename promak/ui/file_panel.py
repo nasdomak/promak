@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 
 from promak.core.batch import BatchEngine
 from promak.core.config import get_config
+from promak.core.eta import RemainingTime
 from promak.core.filejobs import FileJob, FileStage, apply_snapshot
 from promak.core.imaging import RASTER_EXTENSIONS, human_size
 from promak.core.paths import default_output_dir, open_in_file_manager
@@ -70,6 +71,8 @@ class FileQueuePanel(QWidget):
         self._rows: Dict[int, int] = {}
         self._bars: Dict[int, QProgressBar] = {}
         self._worker: Optional[BatchWorker] = None
+        self._eta = RemainingTime()
+        self._run_ids: set = set()
 
         self.setAcceptDrops(True)
         self._build_ui()
@@ -598,7 +601,9 @@ class FileQueuePanel(QWidget):
         self.save_settings()
         self.log_view.clear()
         self.overall_bar.setValue(0)
-        self.overall_bar.setFormat("Working... %p%")
+        self.overall_bar.setFormat("Working... %p% - estimating time left")
+        self._run_ids = {job.id for job in pending}
+        self._eta.start()
 
         self._worker = BatchWorker(pending, self.create_engine, self)
         self._worker.job_updated.connect(self._on_job_updated)
@@ -626,9 +631,22 @@ class FileQueuePanel(QWidget):
         if self._jobs:
             total = sum(100.0 if j.stage.is_final else j.progress for j in self._jobs)
             self.overall_bar.setValue(int(total / len(self._jobs)))
+        self._show_time_left()
+
+    def _show_time_left(self) -> None:
+        """Write in the footer bar how long the run should still take."""
+        if not self._eta.running:
+            return
+        run = [job for job in self._jobs if job.id in self._run_ids]
+        if not run:
+            return
+        done = sum(100.0 if j.stage.is_final else j.progress for j in run) / (100.0 * len(run))
+        self.overall_bar.setFormat(f"Working... %p% - {self._eta.describe(done)}")
 
     def _on_run_finished(self, summary: Dict) -> None:
-        self.overall_bar.setFormat("Finished - %p%")
+        elapsed = int(self._eta.elapsed())
+        self._eta.stop()
+        self.overall_bar.setFormat(f"Finished in {elapsed // 60}m {elapsed % 60:02d}s - %p%")
         if not summary.get("failed") and not summary.get("cancelled"):
             self.overall_bar.setValue(100)
         self.stop_button.setEnabled(True)
