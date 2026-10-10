@@ -119,14 +119,21 @@ QListWidget#ToolList {{
     padding: 2px 10px;
 }}
 QListWidget#ToolList::item {{
-    padding: 10px 12px;
-    margin: 2px 0;
+    padding: 6px 12px;
+    margin: 1px 0;
     border-radius: 9px;
     color: {text_dim};
 }}
 QListWidget#ToolList::item:hover {{
     background-color: {surface_alt};
     color: {text};
+}}
+QListWidget#ToolList::item:disabled {{
+    color: {text_faint};
+    font-size: 10px;
+    font-weight: 800;
+    padding: 12px 12px 3px 12px;
+    background: transparent;
 }}
 QListWidget#ToolList::item:selected {{
     background-color: {accent};

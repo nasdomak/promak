@@ -132,11 +132,11 @@ def _self_test(window, report: "Path", icon) -> int:
 
     Writes what it found to ``report`` and quits without showing anything.
     """
-    from promak.core.dependencies import check_dependencies, image_dependencies
+    from promak.core.dependencies import check_dependencies, image_dependencies, tool_dependencies
     from promak.core.tool_registry import BUILT_IN_TOOLS, registry
 
     tools = [tool.info.id for tool in registry.tools]
-    components = check_dependencies() + image_dependencies()
+    components = check_dependencies() + image_dependencies() + tool_dependencies()
     lines = [
         f"tools={','.join(tools)}",
         f"icon={'ok' if not icon.isNull() else 'missing'}",

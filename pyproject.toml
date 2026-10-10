@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "promak"
-version = "0.4.0"
+version = "0.5.0"
 description = "Free and open-source productivity toolbox: video downloader with transcription, picture-to-vector (SVG), picture shrinker, batch resize/convert/watermark and folder numbering."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,6 +30,8 @@ dependencies = [
     "faster-whisper>=1.0.0",
     "Pillow>=10.0",
     "vtracer>=0.6",
+    "pikepdf>=8.0",
+    "pypdfium2>=4.20",
 ]
 
 [project.optional-dependencies]

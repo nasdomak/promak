@@ -12,7 +12,7 @@ class PictureBatchTool(PromakTool):
         summary="Resize, convert and watermark many pictures in one go.",
         category="Pictures",
         icon="⤢",
-        order=40,
+        order=34,
         tags=("images", "resize", "convert", "watermark", "batch"),
     )
 

@@ -11,7 +11,7 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Eight tools so far, all in one window:
+Many tools, all in one window, grouped in the sidebar - type a word in *Find a tool* to jump to one:
 
 | Tool | What it does |
 |------|--------------|
@@ -23,6 +23,7 @@ Eight tools so far, all in one window:
 | **Audio toolbox** | Converts sound files (or the sound of videos), evens out the volume, trims and splits them |
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Number folders** | Gives the folders inside a folder names in sequence - 01, 02, 03 - with a preview and an undo |
+| **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
 
@@ -184,6 +185,25 @@ Work trip   ->  03 - Work trip
 * Names can be swapped safely (01 and 02 trade places), and **Undo last
   renaming** puts the old names back.
 
+## 8. PDF toolbox
+
+| Job | What you get |
+|-----|--------------|
+| Merge into one PDF | every file of the queue in queue order - PDF files and pictures (scans, phone photos) alike |
+| Split | one PDF per page, per range (`1-3,4-6,7-end`) or every N pages, in a folder of their own |
+| Keep only some pages | the pages you write, **in the order you write them**: `3,1,2,4-end` also reorders |
+| Delete some pages | everything except `2,5-7` |
+| Rotate | every page, or only `1,3-4`, by 90, 180 or 270 degrees |
+| Make lighter | the pictures inside are saved again smaller (three levels); a PDF that cannot get lighter is left alone |
+| Pages as pictures | one PNG or JPG per page, at screen, good or print sharpness |
+| Protect / remove the password | AES-256 password to open the copy; or a copy that opens without the password you know |
+
+* Page lists: `1-3,7`, `5-end`, and `5-1` for backwards.
+* A PDF that asks for a password is opened with the one typed in *Password*.
+* Done with [pikepdf](https://github.com/pikepdf/pikepdf) and
+  [pypdfium2](https://github.com/pypdfium2-team/pypdfium2); nothing is uploaded and your
+  originals are never changed.
+
 ---
 
 ## Installation (Windows)
@@ -271,6 +291,9 @@ promak.bat vector logo.png --out svg --bw
 promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}"          (preview)
 promak.bat rename "D:\Photos\2026" --code "{n:3} - {name}" --yes    (rename)
 promak.bat rename --undo
+promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
+promak.bat pdf    "D:\Scans" --do compress --level strong
+promak.bat pdf    report.pdf --do keep --pages "1-3,7"
 promak.bat --help              (every command)
 promak.bat resize --help       (every option of one command)
 ```
@@ -336,7 +359,8 @@ promak/
     ├── picturebatch/      # tool 4  (engine.py, panel.py, tool.py)
     ├── audio/             # tool 5  (engine.py, panel.py, tool.py)
     ├── text/              # text toolbox (engine.py, panel.py, tool.py)
-    └── renamer/           # tool 6  (engine.py, panel.py, tool.py)
+    ├── renamer/           # number folders (engine.py, panel.py, tool.py)
+    └── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
 ```
 
 **Adding a tool** means creating `promak/tools/<name>/tool.py` with a

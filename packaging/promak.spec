@@ -19,7 +19,7 @@ datas = [(str(ROOT / "assets"), "assets")]
 binaries = []
 hiddenimports = collect_submodules("promak")
 assert any(name.endswith(".renamer.tool") for name in hiddenimports), "Promak tools not found"
-for package in ("yt_dlp", "faster_whisper", "ctranslate2", "imageio_ffmpeg", "vtracer", "curl_cffi"):
+for package in ("yt_dlp", "faster_whisper", "ctranslate2", "imageio_ffmpeg", "vtracer", "curl_cffi", "pikepdf", "pypdfium2"):
     try:
         d, b, h = collect_all(package)
     except Exception:

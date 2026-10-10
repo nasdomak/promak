@@ -12,7 +12,7 @@ class VectorizeTool(PromakTool):
         summary="Redraw a logo or a drawing as real shapes (SVG), so it never goes blurry.",
         category="Pictures",
         icon="◆",
-        order=20,
+        order=30,
         tags=("svg", "vector", "logo", "images"),
     )
 

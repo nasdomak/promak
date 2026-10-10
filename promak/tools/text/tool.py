@@ -10,9 +10,9 @@ class TextTool(PromakTool):
         id="text",
         name="Text toolbox",
         summary="Clean up, summarise and convert text files and subtitles - offline.",
-        category="Text",
+        category="Documents",
         icon="¶",
-        order=55,
+        order=58,
         tags=("text", "summary", "clean", "subtitles", "markdown"),
     )
 
