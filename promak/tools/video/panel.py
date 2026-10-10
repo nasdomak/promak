@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from promak.core.config import get_config
+from promak.core.eta import RemainingTime
 from promak.core.dependencies import (
     SUBPROCESS_QUIET,
     check_dependencies,
@@ -102,7 +103,7 @@ class _Updater(QThread):
     done = Signal(bool, str)
 
     def run(self) -> None:  # noqa: D102
-        command = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp"]
+        command = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp[default,curl-cffi]"]
         try:
             result = subprocess.run(
                 command,
@@ -132,6 +133,8 @@ class VideoPanel(QWidget):
         self._worker: Optional[PipelineWorker] = None
         self._updater: Optional[_Updater] = None
         self._expanders: List[_PlaylistExpander] = []
+        self._eta = RemainingTime()
+        self._run_ids: set = set()
 
         self._build_ui()
         self._load_settings()
@@ -856,7 +859,9 @@ class VideoPanel(QWidget):
         self.save_settings()
         self.log_view.clear()
         self.overall_bar.setValue(0)
-        self.overall_bar.setFormat("Working... %p%")
+        self.overall_bar.setFormat("Working... %p% - estimating time left")
+        self._run_ids = {job.id for job in pending}
+        self._eta.start()
 
         self._worker = PipelineWorker(pending, options, self)
         self._worker.job_updated.connect(self._on_job_updated)
@@ -903,6 +908,10 @@ class VideoPanel(QWidget):
                 break
         if self._jobs:
             self.overall_bar.setValue(int(sum(j.overall for j in self._jobs) / len(self._jobs)))
+        run = [job for job in self._jobs if job.id in self._run_ids]
+        if self._eta.running and run:
+            done = sum(100.0 if j.stage.is_final else j.overall for j in run) / (100.0 * len(run))
+            self.overall_bar.setFormat(f"Working... %p% - {self._eta.describe(done)}")
 
     def _apply_job_state(self, job_id: int, stage: str, overall: float, detail: str, name: str) -> None:
         row = self._rows.get(job_id)
@@ -923,7 +932,9 @@ class VideoPanel(QWidget):
             bar.setValue(int(overall))
 
     def _on_run_finished(self, summary: Dict) -> None:
-        self.overall_bar.setFormat("Finished - %p%")
+        elapsed = int(self._eta.elapsed())
+        self._eta.stop()
+        self.overall_bar.setFormat(f"Finished in {elapsed // 60}m {elapsed % 60:02d}s - %p%")
         self.overall_bar.setValue(100 if summary.get("failed", 0) == 0 else self.overall_bar.value())
         self.stop_button.setEnabled(True)
         self._worker = None

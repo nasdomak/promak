@@ -114,6 +114,11 @@ def main(argv=None) -> int:
         page = window.stack.widget(index)
         if hasattr(page, "url_input"):
             _fill_video(page, destination)
+        elif hasattr(page, "set_folder"):
+            albums = _SANDBOX / "albums"
+            for name in ("Summer by the sea", "Grandma's birthday", "07 - School play", "Winter 2"):
+                (albums / name).mkdir(parents=True, exist_ok=True)
+            page.set_folder(albums)
         elif hasattr(page, "add_files"):
             _fill_files(page, pictures, destination)
 

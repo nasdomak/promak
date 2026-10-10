@@ -4,7 +4,7 @@
 PySide6>=6.6            # graphical interface
 
 # --- tool 1: video downloader --------------------------------------------
-yt-dlp>=2024.1.1        # download engine, knows well over a thousand sites
+yt-dlp[default,curl-cffi]>=2024.1.1  # download engine, knows well over a thousand sites
 imageio-ffmpeg>=0.4.9   # ships an FFmpeg binary, so nothing has to be installed by hand
 faster-whisper>=1.0.0   # local, free speech-to-text
 

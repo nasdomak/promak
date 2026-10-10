@@ -51,12 +51,17 @@ if errorlevel 1 goto :failed
 
 echo.
 echo [4/4] Checking that everything really works...
-".venv\Scripts\python.exe" -c "import PySide6, yt_dlp, faster_whisper, PIL, vtracer; from promak.core.dependencies import check_dependencies, image_dependencies; [print('   ', d.label, '->', 'OK' if d.available else 'MISSING') for d in check_dependencies() + image_dependencies()]"
+".venv\Scripts\python.exe" -c "import PySide6, yt_dlp, curl_cffi, faster_whisper, PIL, vtracer; from promak.core.dependencies import check_dependencies, image_dependencies; [print('   ', d.label, '->', 'OK' if d.available else 'MISSING') for d in check_dependencies() + image_dependencies()]"
 if errorlevel 1 (
     echo.
     echo [X] The components were installed but cannot be loaded.
     goto :failed
 )
+
+echo.
+echo Creating the "Promak" shortcut on the desktop, with its logo...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Promak.lnk'); $s.TargetPath='%~dp0.venv\Scripts\pythonw.exe'; $s.Arguments='-m promak'; $s.WorkingDirectory='%~dp0'; $s.IconLocation='%~dp0assets\promak.ico,0'; $s.Description='Promak'; $s.Save()" >nul 2>nul
+if errorlevel 1 echo     ^(the shortcut could not be created; use run_promak.bat^)
 
 echo.
 echo ============================================

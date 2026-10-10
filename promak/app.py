@@ -65,8 +65,12 @@ def _own_taskbar_entry() -> None:
         return
     try:
         import ctypes
+        from ctypes import wintypes
 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+        setter = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID
+        setter.argtypes = [wintypes.LPCWSTR]
+        setter.restype = ctypes.HRESULT
+        setter(APP_USER_MODEL_ID)
     except Exception:  # pragma: no cover - only an icon is at stake
         log.debug("Could not set the taskbar identity", exc_info=True)
 
@@ -74,10 +78,11 @@ def _own_taskbar_entry() -> None:
 def main(argv: list[str] | None = None) -> int:
     setup_logging()
     _install_crash_handler()
+    # before Qt is even imported, so no window can exist without the id
+    _own_taskbar_entry()
     argv = list(sys.argv if argv is None else argv)
 
     try:
-        from PySide6.QtGui import QIcon
         from PySide6.QtWidgets import QApplication
     except ImportError:
         print(_QT_MISSING, file=sys.stderr)
@@ -88,31 +93,45 @@ def main(argv: list[str] | None = None) -> int:
 
     import promak
 
-    _own_taskbar_entry()
     app = QApplication(argv)
     app.setApplicationName("Promak")
     app.setApplicationDisplayName("Promak")
     app.setApplicationVersion(promak.__version__)
     app.setOrganizationName("Promak")
+    app.setDesktopFileName("promak")
 
     config = get_config()
     app.setStyleSheet(stylesheet(config.get("app.theme", DEFAULT_THEME)))
 
-    icon_path = _icon_path()
-    if icon_path:
-        app.setWindowIcon(QIcon(str(icon_path)))
+    icon = application_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
 
     window = MainWindow()
+    if not icon.isNull():
+        # set on the window too: the taskbar button reads the window's icon
+        window.setWindowIcon(icon)
     window.show()
     log.info("Promak %s started.", promak.__version__)
     return app.exec()
 
 
-def _icon_path():
-    """The application icon, if it was shipped with this copy of Promak."""
+def application_icon():
+    """The Promak logo in every size the system may ask for.
+
+    The taskbar wants a large picture, the title bar a small one: each
+    shipped file is added, so neither has to be scaled from the wrong size.
+    """
+    from PySide6.QtGui import QIcon
+
     from promak.core.paths import asset_file
 
-    return asset_file("promak.ico") or asset_file("promak-256.png")
+    icon = QIcon()
+    for name in ("promak.ico", "promak-32.png", "promak-128.png", "promak-256.png", "promak.svg"):
+        path = asset_file(name)
+        if path is not None:
+            icon.addFile(str(path))
+    return icon
 
 
 if __name__ == "__main__":  # pragma: no cover
