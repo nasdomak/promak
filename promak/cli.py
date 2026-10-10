@@ -24,6 +24,7 @@
     python -m promak shred    "D:/Old scans" --yes
     python -m promak nobg     products/ --colour "#FFFFFF" --out shop/
     python -m promak record   --seconds 60 --out D:/Recordings
+    python -m promak recipe   "Web photos" D:/Holiday --out D:/Web
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -45,7 +46,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe")
 
 
 # ------------------------------------------------------------ the engines
@@ -463,6 +464,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--method", default="", choices=("", "gdigrab", "ddagrab", "x11grab", "avfoundation", "test"))
     p.add_argument("--out", type=Path, help="folder for the recording (default: here)")
 
+    p = sub.add_parser("recipe", help="run a recipe saved on the Recipes screen (a chain of steps)")
+    p.add_argument("name", nargs="?", help="the recipe's name; without it, the recipes are listed")
+    p.add_argument("inputs", nargs="*", type=Path, help="files or folders")
+    p.add_argument("--out", type=Path, help="destination folder (default: next to each original)")
+    p.add_argument("--list", action="store_true", help="list the saved recipes")
+    p.add_argument("--quiet", action="store_true")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -818,6 +826,43 @@ def run_record(args) -> int:
     return 0
 
 
+def run_recipe_command(args) -> int:
+    from promak.tools.recipes import engine as e
+
+    recipes = e.load_recipes()
+    if args.list or not args.name:
+        if not recipes:
+            print("[.] No recipe yet: make one on the Recipes screen.")
+        for name, recipe in sorted(recipes.items()):
+            print(f"{name}:")
+            for number, step in enumerate(recipe.steps, start=1):
+                print(f"   {number}. {step.label()}")
+        return 0
+    recipe = recipes.get(args.name) or next((r for n, r in recipes.items() if n.casefold() == args.name.casefold()), None)
+    if recipe is None:
+        print(f"[!] There is no recipe called '{args.name}'. Saved: {', '.join(sorted(recipes)) or 'none'}", file=sys.stderr)
+        return 2
+    if not args.inputs:
+        print("[!] Give the files or folders to run the recipe on.", file=sys.stderr)
+        return 2
+
+    def log(level: str, message: str) -> None:
+        if not args.quiet or level == "error":
+            prefix = {"error": "[!]", "warning": "[*]"}.get(level, "[.]")
+            print(f"{prefix} {message}", file=sys.stderr if level == "error" else sys.stdout, flush=True)
+
+    try:
+        summary, jobs = e.run_recipe(recipe, args.inputs, args.out, on_log=log)
+    except e.RecipeError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        return 2
+    if not jobs:
+        print("[!] No file the first step can open was found.", file=sys.stderr)
+        return 2
+    print(f"{summary['done']} done, {summary['skipped']} left as they were, {summary['failed']} failed.")
+    return 1 if summary.get("failed") else 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -843,6 +888,8 @@ def main(argv: Sequence[str]) -> int:
         return run_shred(args)
     if args.command == "record":
         return run_record(args)
+    if args.command == "recipe":
+        return run_recipe_command(args)
     if args.command == "unzip":
         return run_unzip(args)
     return run_files(args)
