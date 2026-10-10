@@ -26,8 +26,11 @@ def test_one_qr_code_png_and_svg(tmp_path):
     assert svg.read_bytes().lstrip().startswith(b"<?xml")
     if HAS_CV2:
         import cv2
+        import numpy
 
-        assert cv2.QRCodeDetector().detectAndDecode(cv2.imread(str(png)))[0] == "https://example.org/città"
+        # read from the bytes: OpenCV cannot open a path with accents on Windows
+        picture = cv2.imdecode(numpy.frombuffer(png.read_bytes(), numpy.uint8), cv2.IMREAD_COLOR)
+        assert cv2.QRCodeDetector().detectAndDecode(picture)[0] == "https://example.org/città"
 
 
 def test_list_of_barcodes_with_a_bad_line(tmp_path):
