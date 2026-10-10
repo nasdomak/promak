@@ -112,6 +112,7 @@ class BatchEngine:
                 job.error = str(exc)
                 summary["failed"] += 1
                 self._log("error", f"Failed: {job.display_name} - {exc}")
+                log.debug("Job failure detail", exc_info=True)
             except MemoryError:
                 job.stage = FileStage.FAILED
                 job.error = (

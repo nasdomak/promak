@@ -94,3 +94,24 @@ def test_background_screen(qapp, tmp_path):
     finally:
         panel.deleteLater()
         qapp.processEvents()
+
+
+def test_a_broken_rembg_is_not_called_missing(monkeypatch):
+    """Installed but failing to load must say so, with the reason - not 'missing'."""
+    from promak.core import dependencies
+    from promak.tools.background import engine
+
+    monkeypatch.setattr(dependencies, "module_available", lambda name: True)
+    error = engine._start_error(ImportError("DLL load failed while importing _helperlib"))
+    assert "installed but could not start" in str(error)
+    assert "_helperlib" in str(error)
+    error = engine._start_error(RuntimeError("cannot cache function 'boxfilter'"))
+    assert "RuntimeError" in str(error) and "boxfilter" in str(error)
+
+
+def test_a_really_absent_rembg_is_called_missing(monkeypatch):
+    from promak.core import dependencies
+    from promak.tools.background import engine
+
+    monkeypatch.setattr(dependencies, "module_available", lambda name: False)
+    assert "rembg is missing" in str(engine._start_error(ImportError("No module named 'rembg'")))

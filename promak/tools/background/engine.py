@@ -91,9 +91,8 @@ def require_session(model: str):
         os.environ["U2NET_HOME"] = str(model_home())
         try:
             from rembg import new_session
-        except ImportError as exc:
-            raise BackgroundError("rembg is missing, so backgrounds cannot be removed. Run install_windows.bat "
-                                  "again, or:  pip install -U rembg onnxruntime") from exc
+        except Exception as exc:
+            raise _start_error(exc) from exc
         try:
             session = new_session(model)
         except Exception as exc:
@@ -106,9 +105,24 @@ def require_session(model: str):
         return session
 
 
+def _start_error(exc: BaseException) -> BackgroundError:
+    """rembg would not load: missing, or present with a broken piece (say which)."""
+    from promak.core.dependencies import module_available
+
+    log.warning("rembg could not be loaded", exc_info=(type(exc), exc, exc.__traceback__))
+    if isinstance(exc, ImportError) and not module_available("rembg"):
+        return BackgroundError("rembg is missing, so backgrounds cannot be removed. Run install_windows.bat "
+                               "again, or:  pip install -U rembg onnxruntime")
+    return BackgroundError(f"rembg is installed but could not start ({type(exc).__name__}: {exc}). "
+                           "Run install_windows.bat again; if it persists, the details are in Promak's log.")
+
+
 def remove_background(image, options: BackgroundOptions, session=None):
     """The picture with its background transparent (RGBA)."""
-    from rembg import remove
+    try:
+        from rembg import remove
+    except Exception as exc:
+        raise _start_error(exc) from exc
 
     session = session or require_session(options.model)
     try:

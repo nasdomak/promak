@@ -245,3 +245,11 @@ def test_numba_compiler_chatter_stays_out_of_the_log(tmp_path: Path, monkeypatch
                 root.removeHandler(h)
                 h.close()
         root.setLevel(level)
+
+
+def test_self_test_really_imports_the_engines():
+    from promak.app import import_check
+
+    results = import_check(("json", "promak_no_such_engine"))
+    assert results["json"].startswith("ok (")
+    assert results["promak_no_such_engine"].startswith("ModuleNotFoundError")

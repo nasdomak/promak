@@ -150,15 +150,41 @@ def _self_test(window, report: "Path", icon) -> int:
 
     tools = [tool.info.id for tool in registry.tools]
     components = check_dependencies() + image_dependencies() + tool_dependencies()
+    imports = import_check()
     lines = [
         f"tools={','.join(tools)}",
         f"icon={'ok' if not icon.isNull() else 'missing'}",
         *(f"{d.key}={'ok' if d.available else 'missing'}" for d in components),
+        *(f"import {name}={result}" for name, result in imports.items()),
     ]
     report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     window.close()
-    whole = set(tools) == set(BUILT_IN_TOOLS) and not icon.isNull() and all(d.available for d in components)
+    whole = (set(tools) == set(BUILT_IN_TOOLS) and not icon.isNull() and all(d.available for d in components)
+             and all(result.startswith("ok") for result in imports.values()))
     return 0 if whole else 1
+
+
+#: engines that are only found, not loaded, by the component check; a packaged
+#: build can ship them with a piece missing, so the self-test imports them for real
+HEAVY_IMPORTS = ("onnxruntime", "ctranslate2", "faster_whisper", "rapidocr", "rembg")
+
+
+def import_check(names=HEAVY_IMPORTS) -> dict:
+    """``{module: "ok (1.2 s)" or "ErrorType: message"}`` after really importing each."""
+    import importlib
+    import time
+
+    results = {}
+    for name in names:
+        started = time.monotonic()
+        try:
+            importlib.import_module(name)
+        except Exception as exc:  # what matters is that it is reported
+            log.warning("Self-test: %s does not import", name, exc_info=True)
+            results[name] = f"{type(exc).__name__}: {exc}"
+        else:
+            results[name] = f"ok ({time.monotonic() - started:.1f} s)"
+    return results
 
 
 def application_icon():
