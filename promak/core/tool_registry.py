@@ -23,7 +23,7 @@ BUILT_IN_TOOLS = (
     "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert",
     "sheetmerge", "cleanmeta", "qrcodes", "gifcollage",
     "subtitles", "silence", "archives", "compare",
-    "shred", "background",
+    "shred", "background", "screenrec",
 )
 
 

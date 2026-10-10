@@ -23,6 +23,7 @@
     python -m promak compare  D:/Photos E:/Backup --copy left-to-right --yes
     python -m promak shred    "D:/Old scans" --yes
     python -m promak nobg     products/ --colour "#FFFFFF" --out shop/
+    python -m promak record   --seconds 60 --out D:/Recordings
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -44,7 +45,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record")
 
 
 # ------------------------------------------------------------ the engines
@@ -454,6 +455,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crop", action="store_true", help="trim to the subject")
     p.add_argument("--suffix", default="-no-background")
 
+    p = sub.add_parser("record", help="record the screen for a number of seconds into an MP4")
+    p.add_argument("--seconds", type=float, default=30)
+    p.add_argument("--region", default="", help='"X,Y WIDTHxHEIGHT", e.g. "0,0 1280x720" (default: whole screen)')
+    p.add_argument("--fps", type=int, default=30)
+    p.add_argument("--microphone", default="", help="a microphone name (experimental)")
+    p.add_argument("--method", default="", choices=("", "gdigrab", "ddagrab", "x11grab", "avfoundation", "test"))
+    p.add_argument("--out", type=Path, help="folder for the recording (default: here)")
+
     p = sub.add_parser("duplicates", help="find duplicate files or similar pictures; bin or move the extra copies")
     p.add_argument("folders", nargs="+", type=Path)
     p.add_argument("--similar", type=int, metavar="PERCENT", help="similar pictures instead of exact copies, e.g. 92")
@@ -780,6 +789,35 @@ def run_shred(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def run_record(args) -> int:
+    import time
+
+    from promak.tools.screenrec import engine as e
+
+    try:
+        region = e.parse_region(args.region)
+    except ValueError:
+        print('[!] Write the region as  X,Y WIDTHxHEIGHT  for example  "0,0 1280x720"', file=sys.stderr)
+        return 2
+    options = e.RecordOptions(folder=args.out or Path.cwd(), region=region, frame_rate=args.fps,
+                              microphone=args.microphone, method=args.method)
+    try:
+        recorder = e.Recorder(options)
+        recorder.start()
+        print(f"[.] Recording {e.screen_size_text(region)} for {args.seconds} s (Ctrl+C stops earlier)...")
+        try:
+            while recorder.running and recorder.elapsed < args.seconds:
+                time.sleep(0.2)
+        except KeyboardInterrupt:
+            pass
+        made = recorder.stop()
+    except e.RecorderError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        return 1
+    print(f"[.] Saved {made}")
+    return 0
+
+
 def main(argv: Sequence[str]) -> int:
     import logging
 
@@ -803,6 +841,8 @@ def main(argv: Sequence[str]) -> int:
         return run_compare(args)
     if args.command == "shred":
         return run_shred(args)
+    if args.command == "record":
+        return run_record(args)
     if args.command == "unzip":
         return run_unzip(args)
     return run_files(args)
