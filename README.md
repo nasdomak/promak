@@ -36,6 +36,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Remove hidden data** | Shows and removes the GPS position, camera and author data hidden in photos, PDF and Office files |
 | **Archives** | Makes ZIP (with an AES password) and 7z archives; lists and extracts ZIP, 7z and TAR safely |
 | **Compare two folders** | Shows what is only on one side, what differs and what is identical, and copies the missing files across |
+| **Secure delete** | Writes random data over files before deleting them, so they cannot be recovered - asked twice |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -336,6 +337,21 @@ Before a photo or a document is shared, see what it tells about you:
   question. Files that differ are never overwritten - you decide which to keep -
   and **Undo last copy** removes what was copied.
 
+## 7h. Secure delete
+
+* Each file is **written over with random data** (once, or three times), forced
+  to the disk, renamed, emptied and then deleted - recovery programs find nothing.
+* Files, or whole folders with everything inside them; the computer's own
+  folders, whole drives and your personal folders themselves are refused.
+* Every file to be destroyed is listed first; then a question, then the word
+  **DELETE** typed by hand. There is no undo and no Recycle Bin - that is the point.
+
+> **What overwriting cannot promise.** On SSDs, USB sticks and memory cards the
+> drive itself decides where data goes and may keep old copies out of reach; in
+> folders kept in sync with an online storage service, older versions may stay
+> on the service; backups and snapshots are not touched. For those, encrypting
+> the whole disk is the real protection. The screen says this too.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -506,6 +522,7 @@ promak.bat qr     --kind ean13 --list barcodes.txt --out "D:\Labels"
 promak.bat zip    "D:\Project" --to "D:\Project.7z" --password "****"
 promak.bat unzip  "D:\Downloads\photos.zip" --to "D:\Photos"         (or --list)
 promak.bat compare "D:\Photos" "E:\Backup\Photos" --copy left-to-right --yes
+promak.bat shred  "D:\Old scans" --yes             (without --yes: only the list)
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -588,6 +605,7 @@ promak/
     ├── cleanmeta/         # remove hidden data (engine.py, panel.py, tool.py)
     ├── archives/          # ZIP, 7z and TAR (engine.py, panel.py, tool.py)
     ├── compare/           # compare two folders (engine.py, panel.py, tool.py)
+    ├── shred/             # secure delete (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)
