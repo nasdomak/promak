@@ -34,6 +34,7 @@ Many tools, all in one window, grouped in the sidebar - type a word in *Find a t
 | **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
 | **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
 | **Remove hidden data** | Shows and removes the GPS position, camera and author data hidden in photos, PDF and Office files |
+| **Archives** | Makes ZIP (with an AES password) and 7z archives; lists and extracts ZIP, 7z and TAR safely |
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 
 While a tool works, the bar at the bottom shows how long it should still take.
@@ -309,6 +310,19 @@ Before a photo or a document is shared, see what it tells about you:
   reported, to be removed in Word itself.
 * Clean copies are saved with `-clean` in the name; the originals are never changed.
 
+## 7f. Archives
+
+* **Make** a ZIP - with an **AES-256 password** if you like - or a 7z, whose
+  password also hides the file names; folders go in with their own name.
+* **Open** ZIP, 7z and TAR (`.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`):
+  see what is inside first, then extract each archive into a folder of its own.
+* **Safe**: an archive that tries to write outside its folder (`../`, absolute
+  paths) or holds links and devices is refused as a whole; nothing already
+  there is overwritten; a wrong password leaves nothing behind.
+
+> Windows' own Explorer cannot open AES-protected ZIP files: 7-Zip, WinRAR,
+> PeaZip and Promak can.
+
 ## 8. PDF toolbox
 
 | Job | What you get |
@@ -476,6 +490,8 @@ promak.bat gif    "D:\Frames" --frame-ms 400 --name "Demo"
 promak.bat collage "D:\Holiday" --columns 3 --spacing 20 --fill
 promak.bat qr     "https://www.example.org" --out "D:\Codes" --svg
 promak.bat qr     --kind ean13 --list barcodes.txt --out "D:\Labels"
+promak.bat zip    "D:\Project" --to "D:\Project.7z" --password "****"
+promak.bat unzip  "D:\Downloads\photos.zip" --to "D:\Photos"         (or --list)
 promak.bat pdf    a.pdf b.pdf scan.jpg --do merge --name "Contract" --out "D:\PDF"
 promak.bat pdf    "D:\Scans" --do compress --level strong
 promak.bat pdf    report.pdf --do keep --pages "1-3,7"
@@ -556,6 +572,7 @@ promak/
     ├── duplicates/        # find duplicates (engine.py, panel.py, tool.py)
     ├── sortdate/          # sort photos by date (engine.py, panel.py, tool.py)
     ├── cleanmeta/         # remove hidden data (engine.py, panel.py, tool.py)
+    ├── archives/          # ZIP, 7z and TAR (engine.py, panel.py, tool.py)
     ├── pdf/               # PDF toolbox (engine.py, panel.py, tool.py)
     ├── ocr/               # text from pictures (engine.py, panel.py, tool.py)
     ├── docconvert/        # convert documents (engine.py, panel.py, tool.py)

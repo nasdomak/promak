@@ -314,6 +314,8 @@ TOOL_COMPONENTS = {
     "openpyxl": ("openpyxl", "openpyxl", "openpyxl", "reading and writing Excel files"),
     "segno": ("segno", "segno", "segno", "making QR codes"),
     "barcode": ("python-barcode", "python-barcode", "barcode", "making barcodes"),
+    "pyzipper": ("pyzipper", "pyzipper", "pyzipper", "ZIP archives with an AES password"),
+    "py7zr": ("py7zr", "py7zr", "py7zr", "7z archives"),
     "rapidocr": ("RapidOCR", "rapidocr", "rapidocr", "reading the text in pictures (OCR)"),
     "onnxruntime": ("ONNX Runtime", "onnxruntime", "onnxruntime", "running the OCR and background models"),
 }
