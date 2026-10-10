@@ -1,8 +1,10 @@
 # What the automatic checks need: the interface and the picture engines.
 # The download and transcription engines are left out on purpose - the
-# tests never download or transcribe anything.
+# tests never download or transcribe anything.  FFmpeg is in: the sound
+# and video tools are tested on tiny files it makes itself.
 PySide6>=6.6
 Pillow>=10.0
 vtracer>=0.6
+imageio-ffmpeg>=0.4.9
 yt-dlp>=2024.1.1
 pytest>=7.0
