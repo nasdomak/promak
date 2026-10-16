@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Dict, List
 
-from PySide6.QtCore import QByteArray, QSize, Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QByteArray, QEvent, QSize, Qt
+from PySide6.QtGui import QGuiApplication, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -27,10 +27,17 @@ from promak.core.config import get_config
 from promak.core.paths import asset_file
 from promak.core.tool_registry import registry
 from promak.ui.theme import normalise as normalise_theme
-from promak.ui.theme import other_theme, palette, stylesheet
+from promak.ui.theme import normalise_zoom, other_theme, palette, stylesheet, zoom_step
 from promak.ui.theme_icons import switch_icon
 
 log = logging.getLogger(__name__)
+
+#: the smallest window: below this even one column would be cramped
+MINIMUM_WINDOW = (760, 500)
+#: the size of a first start, when the screen has room for it
+FIRST_WINDOW = (1440, 880)
+#: the sidebar's width at the normal zoom
+SIDEBAR_WIDTH = 232
 
 #: where a sidebar row keeps its group name (headings only) and its search words
 HEADING_ROLE = Qt.UserRole + 1
@@ -45,11 +52,12 @@ class MainWindow(QMainWindow):
         self.config = get_config()
         self._pages: Dict[str, int] = {}
         self._theme = normalise_theme(self.config.get("app.theme"))
+        self._zoom = normalise_zoom(self.config.get("app.zoom", 1.0))
 
         self.setWindowTitle(f"Promak {promak.__version__}")
-        # three columns side by side need some width
-        self.setMinimumSize(1180, 700)
-        self.resize(1440, 880)
+        # small on purpose: on a laptop the columns slide instead of hiding
+        self.setMinimumSize(*MINIMUM_WINDOW)
+        self.resize(*self._fitting_size(*FIRST_WINDOW))
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -62,6 +70,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stack, 1)
 
         self._populate_tools()
+        self._build_zoom_controls()
         self._restore_geometry()
         self.statusBar().showMessage("Ready")
 
@@ -69,7 +78,8 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QWidget:
         sidebar = QWidget()
         sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(232)
+        sidebar.setFixedWidth(round(SIDEBAR_WIDTH * self._zoom))
+        self.sidebar = sidebar
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 0, 0, 12)
         layout.setSpacing(0)
@@ -152,8 +162,105 @@ class MainWindow(QMainWindow):
         self._theme = normalise_theme(name)
         application = QApplication.instance()
         if application is not None:
-            application.setStyleSheet(stylesheet(self._theme))
+            application.setStyleSheet(stylesheet(self._theme, self._zoom))
         self._refresh_theme_button()
+
+    # --------------------------------------------------------------- zoom
+    def _build_zoom_controls(self) -> None:
+        """A - 100 % + in the status bar, and the usual keys to go with it."""
+        holder = QWidget()
+        row = QHBoxLayout(holder)
+        row.setContentsMargins(0, 0, 6, 0)
+        row.setSpacing(4)
+        self.zoom_out_button = QPushButton("A-")
+        self.zoom_reset_button = QPushButton()
+        self.zoom_in_button = QPushButton("A+")
+        tips = (
+            (self.zoom_out_button, "Smaller letters  (Ctrl -,  or Ctrl + mouse wheel)", -1),
+            (self.zoom_reset_button, "Back to the normal size  (Ctrl 0)", 0),
+            (self.zoom_in_button, "Bigger letters  (Ctrl +,  or Ctrl + mouse wheel)", 1),
+        )
+        for button, tip, direction in tips:
+            button.setObjectName("ZoomButton")
+            button.setToolTip(tip + "\nPromak remembers the size for next time.")
+            button.setCursor(Qt.PointingHandCursor)
+            button.setFocusPolicy(Qt.NoFocus)
+            button.clicked.connect(lambda _checked=False, d=direction: self.change_zoom(d))
+            row.addWidget(button)
+        self.statusBar().addPermanentWidget(holder)
+        for keys, direction in ((QKeySequence.ZoomIn, 1), ("Ctrl+=", 1), (QKeySequence.ZoomOut, -1),
+                                ("Ctrl+0", 0)):
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.setContext(Qt.ApplicationShortcut)
+            shortcut.activated.connect(lambda d=direction: self.change_zoom(d))
+        application = QApplication.instance()
+        if application is not None:
+            application.installEventFilter(self)
+        self._refresh_zoom_controls()
+
+    def _refresh_zoom_controls(self) -> None:
+        self.zoom_reset_button.setText(f"{round(self._zoom * 100)} %")
+        self.zoom_out_button.setEnabled(zoom_step(self._zoom, -1) != self._zoom)
+        self.zoom_in_button.setEnabled(zoom_step(self._zoom, 1) != self._zoom)
+
+    def change_zoom(self, direction: int) -> None:
+        """Letters one step bigger (1), smaller (-1) or normal (0), everywhere."""
+        self.set_zoom(zoom_step(self._zoom, direction))
+
+    def set_zoom(self, value: float) -> None:
+        zoom = normalise_zoom(value)
+        if zoom == self._zoom:
+            return
+        self._zoom = zoom
+        self.config.set("app.zoom", zoom)
+        self.sidebar.setFixedWidth(round(SIDEBAR_WIDTH * zoom))
+        self.apply_theme(self._theme)
+        self._refresh_zoom_controls()
+        self.statusBar().showMessage(f"Letters at {round(zoom * 100)} %", 3000)
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt naming
+        """Ctrl + mouse wheel zooms the whole window, wherever the mouse is."""
+        if (event.type() == QEvent.Wheel and event.modifiers() & Qt.ControlModifier
+                and self.isActiveWindow()):
+            delta = event.angleDelta().y()
+            if delta:
+                self.change_zoom(1 if delta > 0 else -1)
+                return True
+        return super().eventFilter(watched, event)
+
+    # ------------------------------------------------------------ screen
+    @staticmethod
+    def _available_size():
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return None
+        room = screen.availableGeometry()
+        return room.width(), room.height()
+
+    def _fitting_size(self, width: int, height: int):
+        """``width`` x ``height``, made smaller when the screen has less room."""
+        room = self._available_size()
+        if room is None:
+            return width, height
+        # leave the title bar and a little margin in view
+        return (max(MINIMUM_WINDOW[0], min(width, room[0] - 16)),
+                max(MINIMUM_WINDOW[1], min(height, room[1] - 40)))
+
+    def _keep_on_screen(self) -> None:
+        """A window saved on a bigger screen is brought back inside this one."""
+        screen = QGuiApplication.screenAt(self.frameGeometry().center()) or QGuiApplication.primaryScreen()
+        if screen is None or self.isMaximized():
+            return
+        room = screen.availableGeometry()
+        frame = self.frameGeometry()
+        if room.contains(frame):
+            return
+        width, height = self._fitting_size(self.width(), self.height())
+        self.resize(min(width, room.width() - 16), min(height, room.height() - 40))
+        frame = self.frameGeometry()
+        x = min(max(room.left(), frame.left()), room.right() - frame.width() + 1)
+        y = min(max(room.top(), frame.top()), room.bottom() - frame.height() + 1)
+        self.move(max(room.left(), x), max(room.top(), y))
 
     def _populate_tools(self) -> None:
         tools = registry.discover()
@@ -233,6 +340,7 @@ class MainWindow(QMainWindow):
                 self.restoreGeometry(QByteArray.fromBase64(saved.encode("ascii")))
             except Exception:  # pragma: no cover
                 pass
+        self._keep_on_screen()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt naming
         busy = [

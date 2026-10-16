@@ -12,6 +12,8 @@ The dark one is a real alternative, not an afterthought.
 
 from __future__ import annotations
 
+import re
+
 # The two brand colours the logo is built from.
 BRAND_BLUE = "#3A6BF0"
 BRAND_TEAL = "#16B5A4"
@@ -314,6 +316,25 @@ QPushButton#DangerButton:hover {{
     border-color: {error};
     background-color: {error_soft};
 }}
+/* the column buttons shown on a narrow window, and the zoom buttons */
+QPushButton#ColumnNavButton {{
+    padding: 4px 13px;
+    border-radius: 13px;
+    font-size: 12px;
+}}
+QPushButton#ColumnNavButton:checked {{
+    background-color: {accent};
+    border-color: {accent};
+    color: {accent_text};
+    font-weight: 700;
+}}
+QPushButton#ZoomButton {{
+    padding: 1px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    min-width: 18px;
+}}
+QScrollArea#ColumnScroll, QScrollArea#ColumnScroll > QWidget > QWidget {{ background: transparent; }}
 
 /* =============================================== group boxes ========= */
 QGroupBox {{
@@ -487,6 +508,40 @@ def other_theme(name: str) -> str:
     return "dark" if normalise(name) == "light" else "light"
 
 
-def stylesheet(name: str = DEFAULT_THEME) -> str:
-    """The full Qt style sheet for the requested theme."""
-    return STYLE_TEMPLATE.format(**palette(name))
+#: the zoom steps offered (Ctrl + and Ctrl -), as a share of the normal size
+ZOOM_STEPS = (0.8, 0.9, 1.0, 1.1, 1.25, 1.4, 1.6, 1.8)
+DEFAULT_ZOOM = 1.0
+
+
+def normalise_zoom(value) -> float:
+    """A zoom Promak offers, whatever was stored (nearest step)."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_ZOOM
+    return min(ZOOM_STEPS, key=lambda step: abs(step - number))
+
+
+def zoom_step(current, direction: int) -> float:
+    """The next zoom up (``direction`` 1) or down (-1); 0 means back to normal."""
+    if direction == 0:
+        return DEFAULT_ZOOM
+    index = ZOOM_STEPS.index(normalise_zoom(current)) + (1 if direction > 0 else -1)
+    return ZOOM_STEPS[max(0, min(len(ZOOM_STEPS) - 1, index))]
+
+
+def _zoom_fonts(sheet: str, zoom: float) -> str:
+    """Every ``font-size: Npx`` of the sheet multiplied by ``zoom``."""
+    if abs(zoom - 1.0) < 1e-6:
+        return sheet
+
+    def bigger(match) -> str:
+        size = round(float(match.group(1)) * zoom, 1)
+        return f"font-size: {size:g}px"
+
+    return re.sub(r"font-size:\s*([0-9.]+)px", bigger, sheet)
+
+
+def stylesheet(name: str = DEFAULT_THEME, zoom: float = DEFAULT_ZOOM) -> str:
+    """The full Qt style sheet for the requested theme, letters at ``zoom``."""
+    return _zoom_fonts(STYLE_TEMPLATE.format(**palette(name)), normalise_zoom(zoom))

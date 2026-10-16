@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setDesktopFileName("promak")
 
     config = get_config()
-    app.setStyleSheet(stylesheet(config.get("app.theme", DEFAULT_THEME)))
+    app.setStyleSheet(stylesheet(config.get("app.theme", DEFAULT_THEME), config.get("app.zoom", 1.0)))
 
     icon = application_icon()
     if not icon.isNull():
