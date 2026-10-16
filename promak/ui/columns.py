@@ -137,15 +137,21 @@ class ColumnStrip(QWidget):
         return sorted(stops)
 
     def current_column(self) -> int:
-        """The column that takes most of the visible room."""
-        left = self.bar.value()
-        right = left + self.scroll.viewport().width()
-        best, best_seen = 0, -1
+        """The column the strip stands on: the one whose stop is nearest.
+
+        Each column's stop is its left edge, or the far end of the strip for
+        the last columns that cannot be brought further left; at the far end
+        the last column is the current one.
+        """
+        if not self.is_sliding():
+            return 0
+        value, end = self.bar.value(), self.bar.maximum()
+        best, best_distance = 0, None
         for index in range(self.splitter.count()):
-            widget = self.splitter.widget(index)
-            seen = min(right, widget.x() + widget.width()) - max(left, widget.x())
-            if seen > best_seen:
-                best, best_seen = index, seen
+            stop = min(end, max(0, self.splitter.widget(index).x()))
+            distance = abs(stop - value)
+            if best_distance is None or distance <= best_distance:
+                best, best_distance = index, distance
         return best
 
     # ------------------------------------------------------------- moving
@@ -215,8 +221,9 @@ def side_by_side(columns: Sequence[QWidget], settings_key: str,
     splitter.setHandleWidth(14)
     for index, widget in enumerate(columns):
         if index < len(MINIMUM_WIDTHS):
-            # a column may already know it needs more (see fit_setup_column)
-            widget.setMinimumWidth(max(widget.minimumWidth(), MINIMUM_WIDTHS[index]))
+            # never narrower than its minimum, nor than what it holds needs
+            _follow_content(widget, widget.widget() if isinstance(widget, QScrollArea) and widget.widget()
+                            else widget, MINIMUM_WIDTHS[index])
         splitter.addWidget(widget)
         # the queue takes the extra room when the window grows
         splitter.setStretchFactor(index, 1 if index == 1 else 0)
@@ -263,27 +270,49 @@ def fit_setup_column(scroll: QScrollArea, content: QWidget) -> None:
     needed = content.minimumSizeHint().width() + scroll.verticalScrollBar().sizeHint().width() + 6
     scroll.setMinimumWidth(max(scroll.minimumWidth(), needed))
     # bigger letters (zoom) or a longer label later on: the column follows
-    watcher = _FitWatcher(scroll, content)
-    content.installEventFilter(watcher)
-    scroll._fit_watcher = watcher          # kept alive with the column
+    _follow_content(scroll, content, MINIMUM_WIDTHS[0])
 
 
-class _FitWatcher(QObject):
-    """Widens a left column again when what it holds needs more room."""
+class _WidthWatcher(QObject):
+    """Keeps a column at least as wide as what it holds needs.
 
-    def __init__(self, scroll: QScrollArea, content: QWidget) -> None:
-        super().__init__(scroll)
-        self.scroll = scroll
+    A column is given a minimum width so the divider cannot squeeze it; that
+    explicit minimum would otherwise win over its content, and buttons or
+    labels would be cut when the letters get bigger (zoom).
+    """
+
+    def __init__(self, column: QWidget, content: QWidget, base: int) -> None:
+        super().__init__(column)
+        self.column = column
         self.content = content
+        self.base = base
+
+    def needed(self) -> int:
+        if isinstance(self.column, QScrollArea):
+            return (self.content.minimumSizeHint().width()
+                    + self.column.verticalScrollBar().sizeHint().width() + 6)
+        layout = self.content.layout()
+        return layout.minimumSize().width() if layout is not None else self.content.minimumSizeHint().width()
+
+    def refresh(self) -> None:
+        width = max(self.base, self.needed())
+        if width != self.column.minimumWidth():
+            self.column.setMinimumWidth(width)
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt naming
-        if event.type() in (QEvent.LayoutRequest, QEvent.StyleChange, QEvent.FontChange):
-            needed = (self.content.minimumSizeHint().width()
-                      + self.scroll.verticalScrollBar().sizeHint().width() + 6)
-            needed = max(MINIMUM_WIDTHS[0], needed)
-            if needed != self.scroll.minimumWidth():
-                self.scroll.setMinimumWidth(needed)
+        if event.type() in (QEvent.LayoutRequest, QEvent.StyleChange, QEvent.FontChange, QEvent.Show):
+            self.refresh()
         return False
+
+
+def _follow_content(column: QWidget, content: QWidget, base: int) -> None:
+    watcher = getattr(column, "_width_watcher", None)
+    if watcher is None:
+        watcher = _WidthWatcher(column, content, base)
+        content.installEventFilter(watcher)
+        column._width_watcher = watcher       # kept alive with the column
+    watcher.base = max(watcher.base, base)
+    watcher.refresh()
 
 
 def queue_buttons(actions: Sequence[Tuple[str, Callable]], per_row: int = 3) -> QGridLayout:

@@ -22,3 +22,6 @@ py7zr>=0.20
 sentencepiece>=0.2
 ctranslate2>=4.0
 pytest>=7.0
+# only to make sample slides and Writer files in the tests (Promak reads them on its own)
+python-pptx>=1.0
+odfpy>=1.4

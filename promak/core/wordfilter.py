@@ -203,6 +203,7 @@ def filter_subtitles_text(text: str, flt: WordFilter, kind: str = "srt") -> Tupl
     """
     if not flt.active:
         return text, 0
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     kind = kind.lower().lstrip(".")
     if kind in ("ass", "ssa"):
         return _filter_ass(text, flt)

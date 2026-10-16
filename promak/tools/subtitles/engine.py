@@ -149,7 +149,10 @@ def _utf8_copy(source: Path, target: Path) -> None:
     """Subtitles as UTF-8 (old SRT files are often in the Windows encoding)."""
     from promak.tools.text.engine import read_text
 
-    target.write_text(read_text(source), encoding="utf-8")
+    text = read_text(source).replace("\r\n", "\n").replace("\r", "\n")
+    # newline="\n": on Windows a plain write would turn the line ends kept
+    # from the original (\r\n) into \r\r\n, a blank line after every line
+    target.write_text(text, encoding="utf-8", newline="\n")
 
 
 # ------------------------------------------------------------------- engine
