@@ -342,11 +342,12 @@ class PdfBook:
             finally:
                 textpage.close()
             data.boxes = self._graphics(page, width, height)
-            page_area = width * height
-            big = [b for b in data.boxes if b.kind == "image" and b.area >= 0.7 * page_area]
-            data.covered_by_picture = bool(big)
-            letters = sum(len(line.text.replace(" ", "")) for line in data.lines)
-            data.scanned = bool(big) and letters < 15
+            data.covered_by_picture = bool(_page_pictures(data.boxes, width, height))
+            # letters in the body of the page: a scanner's stamp in the margin
+            # ("Scanned with ...", a date) does not make a scan a text page
+            letters = sum(len(line.text.replace(" ", "")) for line in data.lines
+                          if 0.08 * height < line.top and line.bottom < 0.92 * height)
+            data.scanned = data.covered_by_picture and letters < 15
             if data.covered_by_picture and self.settings.pictures == PICTURES_FIGURES:
                 self._scan_figures(page, data)
             elif data.scanned and self.settings.ocr:
@@ -522,7 +523,8 @@ class PdfBook:
             if figure.saved is not None:
                 data.ready_figures.append(figure)
         # the page picture itself is not a figure any more
-        data.boxes = [b for b in data.boxes if not (b.kind == "image" and b.area >= 0.7 * data.width * data.height)]
+        whole = {id(b) for b in _page_pictures(data.boxes, data.width, data.height)}
+        data.boxes = [b for b in data.boxes if id(b) not in whole]
 
     # ------------------------------------------------------ what we learnt
     def _learn(self) -> None:
@@ -682,6 +684,7 @@ class PdfBook:
                 if changed:
                     break
         figures = []
+        small: List[Box] = []
         for members, area in zip(clusters, bounds):
             images = sum(1 for b in members if b.kind == "image")
             paths = len(members) - images
@@ -689,10 +692,28 @@ class PdfBook:
             if images:
                 ok = width >= 30 and height >= 30
             else:
-                ok = paths >= 3 and width >= 40 and height >= 30 and area.area >= 0.015 * page_area
+                ok = width >= 40 and height >= 30 and area.area >= 0.015 * page_area
+                if ok and paths < 3:
+                    # one or two shapes: a drawing only when they do not frame a
+                    # block of text (a box around a paragraph is not a figure)
+                    words = sum(len(line.text) for line in data.lines
+                                if area.x0 - 2 <= line.x0 and line.x1 <= area.x1 + 2
+                                and area.top - 2 <= line.top and line.bottom <= area.bottom + 2)
+                    ok = words < 40
             if not ok or area.area >= 0.97 * page_area and not images:
+                if not images:
+                    small.append(area)
                 continue
             figures.append(Figure(area.x0, area.top, area.x1, area.bottom, images=images, paths=paths))
+        # a dimension line or an arrow just outside a drawing belongs to it
+        for area in small:
+            near = area.grown(2 * self.JOIN_DISTANCE)
+            for figure in figures:
+                if figure.paths and near.touches(Box("f", figure.x0, figure.top, figure.x1, figure.bottom)):
+                    figure.x0, figure.top = min(figure.x0, area.x0), min(figure.top, area.top)
+                    figure.x1, figure.bottom = max(figure.x1, area.x1), max(figure.bottom, area.bottom)
+                    figure.paths += 1
+                    break
         for figure in figures:
             self._grow_with_labels(figure, data)
         return figures
@@ -936,6 +957,23 @@ class PdfBook:
 def read_pdf(path: Path, sink: Optional[PictureSink], settings: ReadSettings, report=None, check_cancel=None) -> Document:
     book = PdfBook(path, sink, settings, report or (lambda p, d="": None), check_cancel or (lambda: None))
     return book.read()
+
+
+# ================================================== pictures of paper
+def _page_pictures(boxes: Sequence["Box"], width: float, height: float) -> List["Box"]:
+    """The pictures that make up the whole page: one big one, or the strips
+    some scanners cut a page into (full-width bands stacked one under the
+    other, or full-height ones side by side)."""
+    page_area = width * height
+    images = [b for b in boxes if b.kind == "image"]
+    big = [b for b in images if b.area >= 0.7 * page_area]
+    if big or page_area <= 0:
+        return big
+    for strips in ([b for b in images if b.x1 - b.x0 >= 0.8 * width],
+                   [b for b in images if b.bottom - b.top >= 0.8 * height]):
+        if 2 <= len(strips) <= 64 and sum(b.area for b in strips) >= 0.7 * page_area:
+            return strips
+    return []
 
 
 # ================================================== drawings on a scan

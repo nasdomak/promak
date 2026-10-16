@@ -217,6 +217,23 @@ def _transcribe_once(
     return segments, detected
 
 
+def filter_segments(segments: List[Segment], word_filter) -> Tuple[List[Segment], int]:
+    """The segments without the expressions to remove (a :class:`WordFilter`).
+
+    A segment left with no words at all is dropped, so the .srt shows no
+    empty subtitle and the .txt no stray full stop.
+    """
+    kept: List[Segment] = []
+    total = 0
+    for segment in segments:
+        text, count = word_filter.apply(segment.text)
+        total += count
+        if count and not text.strip():
+            continue
+        kept.append(Segment(segment.start, segment.end, text.strip() if count else segment.text))
+    return kept, total
+
+
 def write_txt(segments: List[Segment], target: Path, *, title: str = "", source_url: str = "") -> Path:
     """Save a plain-text transcript, wrapped into readable paragraphs."""
     target.parent.mkdir(parents=True, exist_ok=True)

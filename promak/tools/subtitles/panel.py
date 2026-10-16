@@ -38,6 +38,7 @@ from promak.tools.subtitles.engine import (
 )
 from promak.ui.file_panel import FileQueuePanel
 from promak.ui.plan_panel import ColourField, combo, select
+from promak.ui.word_filter_box import WordFilterBox
 
 AUTO = "auto"
 CHOSEN = "file"
@@ -108,6 +109,8 @@ class SubtitlesPanel(FileQueuePanel):
         grid.addWidget(QLabel("Add to names"), len(rows) + 2, 0)
         grid.addWidget(self.suffix_input, len(rows) + 2, 1)
         grid.addWidget(self.overwrite_check, len(rows) + 3, 0, 1, 2)
+        self.word_filter_box = WordFilterBox("Remove these words from the subtitles")
+        grid.addWidget(self.word_filter_box, len(rows) + 4, 0, 1, 2)
 
     def _browse_subtitles(self) -> None:
         start = self.file_input.text().strip() or str(Path.home())
@@ -134,7 +137,9 @@ class SubtitlesPanel(FileQueuePanel):
                                outline=self.outline_spin.value(), box=self.box_check.isChecked(),
                                colour=self.colour_field.text(), outline_colour=self.edge_field.text(),
                                crf=int(self.quality_combo.currentData() or 21), suffix=self.suffix_input.text(),
-                               overwrite=self.overwrite_check.isChecked())
+                               overwrite=self.overwrite_check.isChecked(),
+                               drop_words=self.word_filter_box.phrases_text(),
+                               drop_match_case=self.word_filter_box.match_case())
 
     def load_settings(self) -> None:
         super().load_settings()
@@ -150,6 +155,7 @@ class SubtitlesPanel(FileQueuePanel):
         select(self.quality_combo, int(c.get("subtitles.crf", 21)))
         self.suffix_input.setText(c.get("subtitles.suffix", " - subtitled"))
         self.overwrite_check.setChecked(bool(c.get("subtitles.overwrite", False)))
+        self.word_filter_box.load(c)
         self._on_source_changed()
 
     def save_settings(self) -> None:
@@ -160,6 +166,7 @@ class SubtitlesPanel(FileQueuePanel):
                             "subtitles.position": o.position, "subtitles.outline": o.outline,
                             "subtitles.box": o.box, "subtitles.colour": o.colour, "subtitles.edge": o.outline_colour,
                             "subtitles.crf": o.crf, "subtitles.suffix": o.suffix, "subtitles.overwrite": o.overwrite})
+        self.word_filter_box.save(self.config)
 
     def create_engine(self, cancel_event: threading.Event) -> BatchEngine:
         return SubtitleBatch(self.current_options(), cancel_event=cancel_event)
@@ -170,7 +177,7 @@ class SubtitlesPanel(FileQueuePanel):
         options = self.current_options()
         if self.source_combo.currentData() == CHOSEN and not options.subtitle_file:
             return "Choose the subtitle file."
-        return options.validate()
+        return options.validate() or self.word_filter_box.problem() or None
 
     def extra_values(self, job: FileJob) -> Sequence[str]:
         if "subtitles" not in job.info:

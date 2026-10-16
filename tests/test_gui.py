@@ -284,11 +284,191 @@ def test_left_column_never_cuts_its_content(qapp, monkeypatch):
                 f"page {index}: the left column cuts its content "
                 f"({content.width()} < {content.minimumSizeHint().width()})"
             )
-            # nothing sticks out of the window on the right
-            assert splitter.width() <= page.width()
+            # nothing sticks out of the window on the right: when the columns do not
+            # fit they slide inside their strip, each one at its full width
+            strip = splitter.parentWidget()
+            while strip is not None and strip.objectName() != "ColumnStrip":
+                strip = strip.parentWidget()
+            assert strip is not None, f"page {index}: the columns are not in a strip"
+            assert strip.width() <= page.width()
+            if strip.is_sliding():
+                assert strip.nav.isVisible(), f"page {index}: no buttons to reach the hidden columns"
+                for column in range(splitter.count()):
+                    widget = splitter.widget(column)
+                    assert widget.width() >= widget.minimumWidth() - 1
     finally:
         window.close()
         window.deleteLater()
+
+
+# ========================================================== small screens
+def _strip_of(page):
+    from promak.ui.columns import ColumnStrip
+
+    return page.findChildren(ColumnStrip)[0]
+
+
+def test_narrow_window_columns_slide_and_snap_like_a_magnet(qapp, monkeypatch):
+    from promak.tools.video import panel as video_module
+    from promak.ui.main_window import MINIMUM_WINDOW, MainWindow
+
+    monkeypatch.setattr(video_module, "check_dependencies", lambda: [])
+    window = MainWindow()
+    try:
+        assert (window.minimumWidth(), window.minimumHeight()) == MINIMUM_WINDOW
+        window.resize(*MINIMUM_WINDOW)
+        window.show()
+        qapp.processEvents()
+        strip = _strip_of(window.stack.currentWidget())
+        assert strip.is_sliding()
+        assert strip.nav.isVisible() and len(strip.nav_buttons) == 3
+        # a jump to the activity column brings it into view
+        strip._animation.setDuration(0)
+        strip.show_column(2)
+        qapp.processEvents()
+        assert strip.current_column() == 2
+        assert strip.nav_buttons[2].isChecked()
+        # left half-way between two columns, the strip settles on the nearest one
+        stops = strip.column_starts()
+        strip.bar.setValue((stops[0] + stops[1]) // 2 - 5)
+        strip.snap()
+        qapp.processEvents()
+        assert strip.bar.value() in stops
+        # a wide window shows the three columns and no buttons
+        window.resize(2600, 1000)
+        qapp.processEvents()
+        if not strip.is_sliding():
+            assert not strip.nav.isVisible()
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+def test_zoom_makes_letters_bigger_and_is_remembered(qapp, monkeypatch):
+    from promak.core.config import get_config
+    from promak.tools.video import panel as video_module
+    from promak.ui.main_window import MainWindow
+    from promak.ui.theme import ZOOM_STEPS, normalise_zoom, stylesheet, zoom_step
+
+    assert normalise_zoom("nonsense") == 1.0 and normalise_zoom(3) == ZOOM_STEPS[-1]
+    assert zoom_step(1.0, 1) == 1.1 and zoom_step(1.0, -1) == 0.9 and zoom_step(1.6, 0) == 1.0
+    assert "font-size: 13px" in stylesheet("light", 1.0)
+    assert "font-size: 16.2px" in stylesheet("light", 1.25) or "font-size: 16.25px" in stylesheet("light", 1.25)
+
+    monkeypatch.setattr(video_module, "check_dependencies", lambda: [])
+    window = MainWindow()
+    try:
+        assert window.zoom_reset_button.text() == "100 %"
+        width = window.sidebar.width()
+        window.change_zoom(1)
+        assert window.zoom_reset_button.text() == "110 %"
+        assert get_config().get("app.zoom") == 1.1
+        assert window.sidebar.width() > width
+        for _ in range(20):
+            window.change_zoom(1)
+        assert not window.zoom_in_button.isEnabled()          # the biggest step
+        window.change_zoom(0)
+        assert window.zoom_reset_button.text() == "100 %" and window.sidebar.width() == width
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+def test_window_never_larger_than_the_screen(qapp, monkeypatch):
+    from promak.tools.video import panel as video_module
+    from promak.ui.main_window import MINIMUM_WINDOW, MainWindow
+
+    monkeypatch.setattr(video_module, "check_dependencies", lambda: [])
+    monkeypatch.setattr(MainWindow, "_available_size", staticmethod(lambda: (1280, 720)))
+    window = MainWindow()
+    try:
+        assert window.width() <= 1280 - 16 and window.height() <= 720 - 40
+        assert window._fitting_size(400, 300) == MINIMUM_WINDOW
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+# ======================================================== words to remove
+def test_word_filter_box_starts_off_but_remembers_the_words(qapp):
+    from promak.core.config import get_config
+    from promak.ui.word_filter_box import WordFilterBox
+
+    box = WordFilterBox()
+    box.load(get_config())
+    assert not box.enable_check.isChecked() and box.phrases_text() == ""
+    box.enable_check.setChecked(True)
+    assert box.problem()                                       # ticked with nothing written
+    box.phrases_input.setText("vaffanculo; you know")
+    box.case_check.setChecked(True)
+    assert box.problem() == "" and box.phrases_text() == "vaffanculo; you know"
+    assert box.word_filter().active and box.match_case()
+    box.save(get_config())
+    again = WordFilterBox()
+    again.load(get_config())
+    # the words and the case choice come back; the tick does not
+    assert again.phrases_input.text() == "vaffanculo; you know" and again.case_check.isChecked()
+    assert not again.enable_check.isChecked() and again.phrases_text() == ""
+
+
+def test_video_screen_passes_the_words_to_remove(video_panel, tmp_path):
+    video_panel.transcribe_check.setChecked(True)
+    video_panel.word_filter_box.enable_check.setChecked(True)
+    video_panel.word_filter_box.phrases_input.setText("damn")
+    options = video_panel._current_options()
+    assert options.drop_words == "damn" and not options.drop_match_case
+    video_panel.word_filter_box.enable_check.setChecked(False)
+    assert video_panel._current_options().drop_words == ""
+    video_panel.transcribe_check.setChecked(False)
+    assert not video_panel.word_filter_box.isEnabled()
+
+
+def test_subtitles_screen_passes_the_words_to_remove(qapp):
+    from promak.tools.subtitles.panel import SubtitlesPanel
+
+    panel = SubtitlesPanel()
+    try:
+        panel.word_filter_box.enable_check.setChecked(True)
+        panel.word_filter_box.phrases_input.setText("damn")
+        assert panel.current_options().drop_words == "damn"
+        panel.word_filter_box.phrases_input.setText("")
+        assert "no word" in (panel.validate_before_start() or "")
+    finally:
+        panel.deleteLater()
+
+
+# ======================================================== books to markdown
+def test_books_to_markdown_screen(qapp, tmp_path):
+    from promak.tools.booknotes.panel import BookNotesPanel
+    from promak.tools.booknotes.pdf_reader import PICTURES_NONE
+
+    panel = BookNotesPanel()
+    try:
+        book = tmp_path / "book.txt"
+        book.write_text("A short book.", encoding="utf-8")
+        (tmp_path / "skip.xyz").write_text("?")
+        panel.destination_input.setText(str(tmp_path / "out"))
+        panel.add_files([book, tmp_path / "skip.xyz"])
+        assert panel.table.rowCount() == 1
+        assert panel.validate_before_start() is None
+        options = panel.current_options()
+        assert options.split and options.ocr and options.page_marks and options.drop_words == ""
+        panel.pictures_combo.setCurrentIndex(panel.pictures_combo.findData(PICTURES_NONE))
+        assert not panel.size_combo.isEnabled()
+        panel.word_filter_box.enable_check.setChecked(True)
+        panel.word_filter_box.phrases_input.setText("short")
+        assert panel.current_options().drop_words == "short"
+        panel.save_settings()
+        again = BookNotesPanel()
+        try:
+            assert again.current_options().pictures == PICTURES_NONE
+            assert again.current_options().drop_words == ""          # the tick is not remembered
+            assert again.word_filter_box.phrases_input.text() == "short"
+        finally:
+            again.deleteLater()
+    finally:
+        panel.deleteLater()
+        qapp.processEvents()
 
 
 def test_renamer_screen_previews_and_renames(qapp, tmp_path, monkeypatch):

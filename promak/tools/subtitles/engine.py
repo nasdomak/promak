@@ -28,6 +28,7 @@ from promak.core.batch import BatchEngine
 from promak.core.filejobs import FileJob
 from promak.core.imaging import human_size
 from promak.core.media import VIDEO_EXTENSIONS, MediaError, media_facts, require_ffmpeg, run_ffmpeg
+from promak.core.wordfilter import WordFilter, describe, filter_text_file
 from promak.tools.pdf.engine import output_path
 
 log = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ class SubtitleOptions:
     crf: int = 21
     suffix: str = " - subtitled"
     overwrite: bool = False
+    #: expressions taken out of the subtitles before they are drawn ("" = none)
+    drop_words: str = ""
+    drop_match_case: bool = False
 
     def validate(self) -> Optional[str]:
         if self.subtitle_file and not Path(self.subtitle_file).is_file():
@@ -171,6 +175,11 @@ class SubtitleBatch(BatchEngine):
             work_dir = Path(work)
             local = work_dir / f"subs{subtitles.suffix.lower()}"
             _utf8_copy(subtitles, local)
+            word_filter = WordFilter(self.options.drop_words, match_case=self.options.drop_match_case)
+            if word_filter.active:
+                removed = filter_text_file(local, word_filter)   # the copy, never the original
+                job.info["removed"] = removed
+                self._log("info", f"{job.display_name}: {describe(removed)} from {subtitles.name}.")
             filter_text = f"subtitles={local.name}"
             font = _system_font()
             font_name = ""
@@ -191,6 +200,8 @@ class SubtitleBatch(BatchEngine):
         job.output_bytes = target.stat().st_size
         job.info["result"] = human_size(job.output_bytes)
         job.message = f"with {subtitles.name}"
+        if "removed" in job.info:
+            job.message += f", {describe(job.info['removed'])}"
 
 
 ACCEPTED_EXTENSIONS = VIDEO_EXTENSIONS

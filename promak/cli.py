@@ -27,6 +27,8 @@
     python -m promak recipe   "Web photos" D:/Holiday --out D:/Web
     python -m promak watch    D:/Scans --recipe "Searchable" --out D:/Done
     python -m promak translate notes/ --from it --to en
+    python -m promak notes    books/ --out D:/SecondBrain --pictures figures --size 1600
+    python -m promak notes    lesson.pdf --one-note --drop "vaffanculo; you know" --match-case
     python -m promak duplicates D:/Photos --similar 92 --move-to D:/Doubles --yes
     python -m promak sortdate D:/Phone --to "D:/Photos by date" --yes
 
@@ -48,7 +50,7 @@ from typing import Callable, Dict, List, Sequence
 
 from promak.core.filejobs import FileJob
 
-COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe", "watch", "translate")
+COMMANDS = ("shrink", "resize", "vector", "audio", "video", "text", "rename", "pdf", "duplicates", "sortdate", "ocr", "convert", "sheets", "clean", "qr", "gif", "collage", "subtitles", "silence", "zip", "unzip", "compare", "shred", "nobg", "record", "recipe", "watch", "translate", "notes")
 
 
 # ------------------------------------------------------------ the engines
@@ -195,7 +197,8 @@ def _subtitles(args):
                                 font_size={"small": 16, "medium": 20, "large": 26, "huge": 34}[args.size],
                                 position={"bottom": 2, "top": 8, "middle": 5}[args.place], outline=args.outline,
                                 box=args.box, colour=args.colour, outline_colour=args.edge, crf=args.crf,
-                                suffix=args.suffix, overwrite=args.overwrite)
+                                suffix=args.suffix, overwrite=args.overwrite, drop_words=args.drop,
+                                drop_match_case=args.match_case)
     return options, e.SubtitleBatch
 
 
@@ -218,6 +221,15 @@ def _nobg(args):
     return options, e.BackgroundBatch
 
 
+def _notes(args):
+    from promak.tools.booknotes import engine as e
+
+    options = e.BookNotesOptions(split=not args.one_note, pictures=args.pictures, picture_size=args.size,
+                                 ocr=not args.no_ocr, page_marks=not args.no_page_marks, overwrite=args.overwrite,
+                                 drop_words=args.drop, drop_match_case=args.match_case)
+    return options, e.BookNotesBatch
+
+
 def _translate(args):
     from promak.tools.translate.engine import TranslateBatch, TranslateOptions
 
@@ -230,6 +242,10 @@ def _extensions(command: str, args=None) -> Sequence[str]:
     from promak.core.media import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
     from promak.tools.text.engine import TEXT_EXTENSIONS
 
+    if command == "notes":
+        from promak.tools.booknotes.engine import ACCEPTED_EXTENSIONS as NOTES_EXTENSIONS
+
+        return NOTES_EXTENSIONS
     if command == "translate":
         from promak.tools.translate.engine import ACCEPTED_EXTENSIONS as TRANSLATE_EXTENSIONS
 
@@ -266,11 +282,18 @@ BUILDERS: Dict[str, Callable] = {
     "shrink": _shrink, "resize": _resize, "vector": _vector, "audio": _audio, "video": _video, "text": _text,
     "pdf": _pdf, "ocr": _ocr, "convert": _convert, "sheets": _sheets, "clean": _clean,
     "gif": _gif, "collage": _collage, "subtitles": _subtitles,
-    "silence": _silence, "nobg": _nobg, "translate": _translate,
+    "silence": _silence, "nobg": _nobg, "translate": _translate, "notes": _notes,
 }
 
 
 # --------------------------------------------------------------- arguments
+def drop_options(p: argparse.ArgumentParser, what: str) -> None:
+    """--drop and --match-case: the words to remove (see promak.core.wordfilter)."""
+    p.add_argument("--drop", default="", metavar='"WORD; EXPRESSION"',
+                   help=f"words or expressions to remove from the {what}, separated by ;")
+    p.add_argument("--match-case", action="store_true", help="with --drop: upper and lower case must match")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="promak", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -422,6 +445,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--edge", default="#000000")
     p.add_argument("--crf", type=int, default=21)
     p.add_argument("--suffix", default=" - subtitled")
+    drop_options(p, "subtitles")
+
+    p = file_tool("notes", "books and documents (PDF, EPUB, Word, slides, web pages, pictures...) into Markdown notes")
+    p.add_argument("--one-note", action="store_true", help="one note for the whole book (default: one per chapter)")
+    p.add_argument("--pictures", choices=("figures", "pages", "none"), default="figures",
+                   help="figures: drawings and photos cut out (default); pages: every page too; none: text only")
+    p.add_argument("--size", type=int, default=1600, metavar="PX", help="longest side of a saved picture")
+    p.add_argument("--no-ocr", action="store_true", help="do not read scanned pages with the OCR")
+    p.add_argument("--no-page-marks", action="store_true", help="no <!-- page N --> marks")
+    drop_options(p, "notes")
 
     p = file_tool("silence", "remove the silent parts from recordings (sound or video)")
     p.add_argument("--level", type=int, default=-35, metavar="DB", help="quieter than this is silence")

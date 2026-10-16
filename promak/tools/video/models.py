@@ -101,6 +101,10 @@ class JobOptions:
     auto_resume: bool = True
     #: update the download engine before the first video of this run
     update_engine_first: bool = False
+    #: expressions taken out of the transcript ("" = keep every word),
+    #: separated by semicolons or new lines - see promak.core.wordfilter
+    drop_words: str = ""
+    drop_match_case: bool = False
 
     @property
     def needs_audio_file(self) -> bool:

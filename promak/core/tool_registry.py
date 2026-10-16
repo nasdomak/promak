@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 #: the tools shipped with Promak, used when the folder cannot be listed
 BUILT_IN_TOOLS = (
     "video", "videotools", "vectorize", "shrink", "picturebatch", "audio", "text", "renamer",
-    "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert",
+    "pdf", "filerename", "duplicates", "sortdate", "ocr", "docconvert", "booknotes",
     "sheetmerge", "cleanmeta", "qrcodes", "gifcollage",
     "subtitles", "silence", "archives", "compare",
     "shred", "background", "screenrec", "recipes", "watch",

@@ -11,7 +11,7 @@ you would otherwise do with five different websites and three command-line
 tools. Everything runs locally on your computer: no account, no upload, no
 subscription, no usage limit.
 
-Twenty-eight tools, all in one window, grouped in the sidebar - type a word (pdf, photo, rename, sound...) in *Find a tool* to jump to one:
+Twenty-nine tools, all in one window, grouped in the sidebar - type a word (pdf, photo, rename, sound...) in *Find a tool* to jump to one:
 
 | Tool | What it does |
 |------|--------------|
@@ -33,6 +33,7 @@ Twenty-eight tools, all in one window, grouped in the sidebar - type a word (pdf
 | **PDF toolbox** | Merges, splits, picks, deletes, rotates and reorders pages, makes PDFs lighter, pictures to PDF and back, adds or removes a password |
 | **Text from pictures** | Reads the text in scans, photos of documents and screenshots (OCR) into a text file or a searchable PDF - offline |
 | **Convert documents** | Word to text, Markdown or HTML and back, Excel to CSV and back, Office files to PDF |
+| **Books to Markdown** | Heavy books and documents (PDF - scanned too -, EPUB, Word, slides...) into light Markdown notes with their pictures, one per chapter, for an AI or a second brain |
 | **Merge spreadsheets** | Puts many CSV and Excel files into one table, columns matched by name, with the source of every row |
 | **Text toolbox** | Cleans up pasted text, turns subtitles into paragraphs, writes a summary, saves as TXT, Markdown or HTML - offline |
 | **Translate (offline)** | Translates text files and subtitles on this computer with free language packs, downloaded once |
@@ -97,6 +98,15 @@ and the choice is remembered.
   turns suspicious.
 * **Free transcription** — [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
   runs on your own machine. The model is downloaded once, then works offline.
+* **Words to remove** — tick *Remove these words from the transcript* and write
+  the words or expressions to leave out (swear words, fillers), separated by `;`:
+  `vaffanculo; you know`. They go from the .txt and the .srt as **whole words**
+  ("culo" never touches "calcolo"), with the spaces and commas around them
+  tidied, and a subtitle left with no words disappears. *Match upper and lower
+  case* decides whether "Ciao" also removes "ciao". The tick is off every time
+  Promak opens - the choice is made for each run - while the list is remembered
+  (the same list serves *Burn subtitles* and *Books to Markdown*). The activity
+  log says how many were removed in each file.
 * **Resumable** — files that already exist are reused instead of downloaded again.
 * **Audio-only shortcut** — untick "Keep the video" and Promak downloads just the
   audio stream, which is several times faster.
@@ -143,6 +153,8 @@ and the choice is remembered.
 * Text size, place (bottom, top, middle), colours, outline or a dark box behind
   the text; old subtitle files in the Windows encoding are read correctly.
 * The result is an H.264 MP4 that plays everywhere.
+* **Words to remove**, as in the video downloader: taken out of the subtitles
+  before they are drawn (your subtitle file is never changed).
 
 ### 5. Cut silences
 * FFmpeg listens to the whole recording and finds every pause **quieter than
@@ -292,7 +304,43 @@ without ever going blurry.
   system) when one of them is installed - Promak asks it in the background.
   When neither is there the screen says so.
 
-### 16. Merge spreadsheets
+### 16. Books to Markdown
+A heavy PDF is a poor thing to give to an AI or to keep in a "second brain":
+it is big, its text is broken into lines and pages, and its drawings are
+invisible to search. Promak rewrites each book as a folder of plain Markdown:
+
+```
+Book name/
+├── Book name.md            the index: title, author, chapters with their pages
+├── 01 - First chapter.md   one note per chapter, with links to the next and back
+├── 02 - Second chapter.md
+└── images/                 every drawing and photo of the book
+```
+
+* **Text in reading order**: paragraphs joined again (also across a hyphen at
+  the end of a line), headings with their levels - from the PDF's bookmarks when
+  it has them, or from the size of the letters - running heads and page numbers
+  left out.
+* **The pictures where they belong**: every drawing, diagram and photo is cut
+  out of its page and placed in the text, with its caption ("Figure 3.2 ...")
+  as description; the words printed inside a drawing (measures, labels) are kept
+  in a comment, so an AI can read them. Line drawings are saved as sharp PNG,
+  photos as light JPEG, each picture once even when it repeats. For very visual
+  books *Every page as a picture too* adds a picture of each page.
+* **Scanned books**: a page that is only a photograph of paper (also when the
+  scanner cut it into strips) is read with the offline OCR, and the drawings on
+  it are cut out too. Photos of pages (JPG, PNG...) are read the same way.
+* A small header on every note (title, author, source, pages) that Obsidian and
+  AIs understand, and a mark where each page starts (`<!-- page 12 -->`), so an
+  answer can be traced back to its page.
+* **Formats**: PDF, EPUB (without DRM), Word (DOCX), Writer (ODT), PowerPoint
+  (PPTX, with the speaker notes), web pages (HTML), Excel and CSV, pictures,
+  text and Markdown.
+* *Remove these words*, as in the video downloader.
+* The queue shows how big the notes came out and about how many AI "tokens"
+  they are.
+
+### 17. Merge spreadsheets
 ```
 January.xlsx   Name | Amount              Name | Amount | City | Source file
 February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
@@ -305,7 +353,7 @@ February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
 * **Duplicate rows** can be dropped; the first sheet of each workbook, or every sheet.
 * Saved as an Excel workbook (header in bold, frozen) or as CSV with comma or semicolon.
 
-### 17. Text toolbox
+### 18. Text toolbox
 * **Clean-up**: double spaces, rows of blank lines, invisible characters, lines
   broken in the middle of a sentence (text copied from PDFs), words cut by a
   hyphen; optionally straight quotes and no repeated lines.
@@ -317,7 +365,7 @@ February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
 * **Formats**: plain text, Markdown, or a simple web page.
 * Word count and reading time for every file, and the result shown on screen.
 
-### 18. Translate (offline)
+### 19. Translate (offline)
 * Text files, Markdown and subtitles (**SRT, VTT: the time codes are kept**) are
   translated on this computer - handy with the video downloader's transcripts.
 * The free language packs of [Argos Translate](https://www.argosopentech.com/)
@@ -332,7 +380,7 @@ February.csv   amount | NAME | City   ->  Anna | 12     |      | January.xlsx
 
 ## Files and folders
 
-### 19. Number folders
+### 20. Number folders
 ```
 Holiday     ->  01 - Holiday
 Birthday    ->  02 - Birthday
@@ -355,7 +403,7 @@ Work trip   ->  03 - Work trip
 * Names can be swapped safely (01 and 02 trade places), and **Undo last
   renaming** puts the old names back.
 
-### 20. Rename files
+### 21. Rename files
 The same codes, preview and undo as *Number folders*, for the files inside a folder:
 
 ```
@@ -372,7 +420,7 @@ IMG_2032.JPG  ->  Holiday 2026-07-13 002.jpg
 * Same safety as the folders: clashes are shown and block the run, names can be
   swapped, and **Undo last renaming** puts the old names back.
 
-### 21. Find duplicates
+### 22. Find duplicates
 * **Exact copies** of any kind of file: grouped by size, then by a fingerprint
   of their content, so each file is read at most once.
 * **Similar pictures**: the same photo resized for e-mail, saved again, slightly
@@ -385,7 +433,7 @@ IMG_2032.JPG  ->  Holiday 2026-07-13 002.jpg
 * The others go **to the Recycle Bin**, or are **moved to a folder** of your
   choice keeping their sub-folders - and that move can be undone.
 
-### 22. Sort photos by date
+### 23. Sort photos by date
 ```
 Camera card/IMG_2031.JPG   ->   Photos by date/2026/07 - July/IMG_2031.JPG
 Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
@@ -403,7 +451,7 @@ Camera card/VID_0042.MP4   ->   Photos by date/2026/08 - August/VID_0042.MP4
 * Every file and its new folder are shown first; **Undo last sorting** puts
   everything back and removes the folders the run created.
 
-### 23. Remove hidden data
+### 24. Remove hidden data
 Before a photo or a document is shared, see what it tells about you:
 
 | File | What is found and removed |
@@ -421,7 +469,7 @@ Before a photo or a document is shared, see what it tells about you:
   reported, to be removed in Word itself.
 * Clean copies are saved with `-clean` in the name; the originals are never changed.
 
-### 24. Archives
+### 25. Archives
 * **Make** a ZIP - with an **AES-256 password** if you like - or a 7z, whose
   password also hides the file names; folders go in with their own name.
 * **Open** ZIP, 7z and TAR (`.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`):
@@ -433,7 +481,7 @@ Before a photo or a document is shared, see what it tells about you:
 > Windows' own Explorer cannot open AES-protected ZIP files: 7-Zip, WinRAR,
 > PeaZip and Promak can.
 
-### 25. Compare two folders
+### 26. Compare two folders
 * Every file of two folders (a folder and its backup, two copies of a project)
   gets an answer: **only on the left**, **only on the right**, **different** or
   **identical** - identical meaning same size *and* same content, read and
@@ -444,7 +492,7 @@ Before a photo or a document is shared, see what it tells about you:
   question. Files that differ are never overwritten - you decide which to keep -
   and **Undo last copy** removes what was copied.
 
-### 26. Secure delete
+### 27. Secure delete
 * Each file is **written over with random data** (once, or three times), forced
   to the disk, renamed, emptied and then deleted - recovery programs find nothing.
 * Files, or whole folders with everything inside them; the computer's own
@@ -460,7 +508,7 @@ Before a photo or a document is shared, see what it tells about you:
 
 ## Automation
 
-### 27. Recipes
+### 28. Recipes
 ```
 Web photos:   1. Resize to 1600 px   2. Watermark "© My shop"   3. Make lighter (quality 78)
 ```
@@ -481,7 +529,7 @@ Web photos:   1. Resize to 1600 px   2. Watermark "© My shop"   3. Make lighter
   promak.bat recipe "Web photos" "D:\Holiday" --out "D:\Web"
   ```
 
-### 28. Watched folder
+### 29. Watched folder
 * Choose a folder - where the scanner saves, where the camera copies, the
   downloads - and **what to do with each new file**: a saved recipe, or one
   tool with the settings of its own screen. The results go to another folder.
@@ -554,6 +602,15 @@ at the bottom starts the work.
 A failed item never stops the others: fix it later with *Retry failed*. The
 activity log records everything.
 
+**On a laptop or a small screen** nothing is cut off. When the three columns
+do not fit side by side they keep their width and slide sideways; let go
+between two columns and the view settles on the nearest one, like a magnet.
+The buttons *1 Settings*, *2 Queue*, *3 Activity* that then appear above them
+(or **Alt+1**, **Alt+2**, **Alt+3**) jump straight to a column. The letters can
+be made bigger or smaller with **A-** / **A+** at the bottom right, **Ctrl +** /
+**Ctrl -** or **Ctrl + mouse wheel** (**Ctrl 0** = normal size); Promak
+remembers the size. The window never opens larger than the screen.
+
 Tools that change your own files - renaming, sorting, duplicates, comparing,
 secure delete - work the other way round: they **look first** and show every
 change in the middle column, act only after a question, and offer **Undo**
@@ -585,6 +642,7 @@ rem --- video and sound
 promak.bat video     "D:\Clips" --out "D:\Small" --fit 25
 promak.bat audio     "D:\Lessons" --out "D:\MP3" --level -16 --split 10
 promak.bat subtitles "D:\Lessons" --size large --box --out "D:\Subtitled"
+promak.bat subtitles "D:\Lessons" --drop "vaffanculo; you know" --match-case
 promak.bat silence   "D:\Lectures" --level -35 --shortest 0.8 --out "D:\Shorter"
 promak.bat record    --seconds 60 --region "0,0 1280x720" --out "D:\Recordings"
 
@@ -608,6 +666,9 @@ promak.bat convert   prices.csv --to xlsx
 promak.bat sheets    "D:\Orders" --name "Orders 2026" --drop-duplicates
 promak.bat text      "D:\Notes" --out "D:\Clean" --make both --format md
 promak.bat translate "D:\Transcripts" --from it --to en
+promak.bat notes     "D:\Books" --out "D:\Second brain"          (one note per chapter)
+promak.bat notes     manual.pdf --one-note --pictures pages --size 2400
+promak.bat notes     "D:\Scans" --drop "damn" --no-page-marks
 
 rem --- files and folders (these show a preview and act only with --yes)
 promak.bat rename    "D:\Photos\2026" --code "{n:3} - {name}" --yes
@@ -677,11 +738,13 @@ promak/
 │   ├── fileops.py         # safe move / copy / Recycle Bin, with an undo journal
 │   ├── tables.py          # CSV and Excel read and written the same way everywhere
 │   ├── eta.py             # the "time left" estimate of the progress bars
+│   ├── wordfilter.py      # the "words to remove" filter (transcripts, subtitles, notes)
 │   └── imaging.py         # Pillow helpers shared by the picture tools
 ├── ui/                    # window shell, theme, shared screens
 │   ├── theme.py           # the light and dark palettes
 │   ├── theme_icons.py     # the sun and moon of the light/dark switch
-│   ├── columns.py         # the three side-by-side columns of every tool
+│   ├── columns.py         # the three columns of every tool, sliding on a small screen
+│   ├── word_filter_box.py # the "Remove these words" choice shared by several screens
 │   ├── file_panel.py      # the screen every file tool inherits
 │   ├── plan_panel.py      # the screen of the "look first, then act" tools
 │   └── preview.py         # the before/after preview
@@ -701,6 +764,7 @@ promak/
     ├── pdf/               # PDF toolbox
     ├── ocr/               # text from pictures
     ├── docconvert/        # convert documents
+    ├── booknotes/         # books to Markdown (pdf_reader.py, formats.py, model.py)
     ├── sheetmerge/        # merge spreadsheets
     ├── text/              # text toolbox
     ├── translate/         # offline translation

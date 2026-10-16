@@ -534,3 +534,36 @@ def clear_old_notes(folder: Path) -> None:
 
 
 ProgressFn = Callable[[float, str], None]
+
+
+def filter_document(document: Document, word_filter) -> int:
+    """Take the expressions of a :class:`promak.core.wordfilter.WordFilter` out
+    of every heading, paragraph, table and picture description.
+
+    A paragraph or heading left with no words is dropped; code is left alone
+    (a word in a program is not a word in a sentence).  Returns how many
+    expressions were removed.
+    """
+    from promak.core.wordfilter import has_words
+
+    if not getattr(word_filter, "active", False):
+        return 0
+    total = 0
+    kept: List[Piece] = []
+    for piece in document.pieces:
+        if piece.kind in (TEXT, TABLE, HEADING):
+            lines, count = word_filter.apply_lines(piece.text.split("\n"))
+            total += count
+            if count:
+                piece.text = "\n".join(lines).strip()
+                if not has_words(piece.text):
+                    continue
+        elif piece.kind == PICTURE and piece.picture is not None:
+            for name in ("alt", "inner_text"):
+                new, count = word_filter.apply(getattr(piece.picture, name) or "")
+                if count:
+                    total += count
+                    setattr(piece.picture, name, new)
+        kept.append(piece)
+    document.pieces = kept
+    return total

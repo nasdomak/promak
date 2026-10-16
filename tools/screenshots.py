@@ -196,6 +196,43 @@ def main(argv=None) -> int:
     corner.save(str(args.out / "sidebar-top-light.png"))
     taken.append(args.out / "sidebar-top-light.png")
 
+    # a laptop: the columns slide in their strip (magnet), letters zoomed
+    from promak.ui.columns import ColumnStrip
+
+    def page_of(tool_id: str):
+        for row in window.tool_rows():
+            if window.tool_list.item(row).data(256) == tool_id:
+                window.tool_list.setCurrentRow(row)
+                for _ in range(3):
+                    app.processEvents()
+                return window.stack.currentWidget()
+        return None
+
+    for tool_id in ("video", "booknotes", "subtitles"):
+        page = page_of(tool_id)
+        box = getattr(page, "word_filter_box", None)
+        if box is not None:      # show the words-to-remove choice in use
+            box.enable_check.setChecked(True)
+            box.phrases_input.setText("vaffanculo; you know")
+    for (w, h), zoom, tool_id, column in (((1366, 700), 1.0, "booknotes", 0), ((1366, 700), 1.0, "video", 1),
+                                         ((1280, 720), 1.25, "booknotes", 0), ((1280, 720), 1.25, "booknotes", 2),
+                                         ((900, 600), 1.0, "subtitles", 0)):
+        window.set_zoom(zoom)
+        window.resize(w, h)
+        page = page_of(tool_id)
+        if page is None:
+            continue
+        strips = page.findChildren(ColumnStrip)
+        if strips:
+            strips[0]._animation.setDuration(0)
+            strips[0].show_column(column)
+        for _ in range(5):
+            app.processEvents()
+        path = args.out / f"laptop-{tool_id}-{w}x{h}-zoom{round(zoom * 100)}-col{column + 1}.png"
+        window.grab().save(str(path))
+        taken.append(path)
+    window.set_zoom(1.0)
+
     for path in taken:
         print(path)
     window.close()

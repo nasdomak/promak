@@ -36,6 +36,7 @@ from promak.core.batch import BatchEngine
 from promak.core.filejobs import FileJob, FileStage
 from promak.core.imaging import human_size
 from promak.core.paths import safe_filename
+from promak.core.wordfilter import WordFilter, describe
 from promak.tools.booknotes import formats
 from promak.tools.booknotes.model import (
     Document,
@@ -44,6 +45,7 @@ from promak.tools.booknotes.model import (
     PictureSink,
     clear_old_notes,
     estimate_tokens,
+    filter_document,
     human_tokens,
     notes_folder,
     slug,
@@ -89,6 +91,9 @@ class BookNotesOptions:
     ocr: bool = True                 # read scanned pages and pictures
     page_marks: bool = True
     overwrite: bool = False
+    #: expressions taken out of the notes ("" = keep every word)
+    drop_words: str = ""
+    drop_match_case: bool = False
 
     def validate(self) -> Optional[str]:
         if self.pictures not in (PICTURES_FIGURES, PICTURES_PAGES, PICTURES_NONE):
@@ -150,6 +155,10 @@ class BookNotesBatch(BatchEngine):
         try:
             document = read_document(source, sink, self.options, report, self.check_cancel)
             self.check_cancel()
+            word_filter = WordFilter(self.options.drop_words, match_case=self.options.drop_match_case)
+            if word_filter.active:
+                removed = filter_document(document, word_filter)
+                self._log("info", f"{job.display_name}: {describe(removed)}.")
             report(99, "writing the notes")
             written = write_notes(document, folder, base_name, source,
                                   NotesOptions(split=self.options.split, page_marks=self.options.page_marks))

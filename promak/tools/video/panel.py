@@ -61,6 +61,7 @@ from promak.tools.video.models import (
 )
 from promak.tools.video.worker import PipelineWorker
 from promak.ui.columns import activity_column, fit_setup_column, folder_label, queue_buttons, side_by_side
+from promak.ui.word_filter_box import WordFilterBox
 
 log = logging.getLogger(__name__)
 
@@ -308,6 +309,8 @@ class VideoPanel(QWidget):
         grid.addWidget(QLabel("Transcript files"), 6, 0, 1, 2)
         grid.addWidget(self.txt_check, 7, 0)
         grid.addWidget(self.srt_check, 7, 1)
+        self.word_filter_box = WordFilterBox("Remove these words from the transcript")
+        grid.addWidget(self.word_filter_box, 8, 0, 1, 2)
 
         self.cookies_combo = QComboBox()
         for code, label in COOKIE_BROWSERS.items():
@@ -319,8 +322,8 @@ class VideoPanel(QWidget):
         )
         cookies_label = QLabel("Use cookies from")
         cookies_label.setToolTip(self.cookies_combo.toolTip())
-        grid.addWidget(cookies_label, 8, 0, 1, 2)
-        grid.addWidget(self.cookies_combo, 9, 0, 1, 2)
+        grid.addWidget(cookies_label, 9, 0, 1, 2)
+        grid.addWidget(self.cookies_combo, 10, 0, 1, 2)
 
         self.cookies_file_input = QLineEdit()
         self.cookies_file_input.setPlaceholderText("cookies.txt exported from the browser (optional)")
@@ -338,8 +341,8 @@ class VideoPanel(QWidget):
         cookies_row.addWidget(cookies_browse)
         cookies_file_label = QLabel("or a cookies file")
         cookies_file_label.setToolTip(self.cookies_file_input.toolTip())
-        grid.addWidget(cookies_file_label, 10, 0, 1, 2)
-        grid.addLayout(cookies_row, 11, 0, 1, 2)
+        grid.addWidget(cookies_file_label, 11, 0, 1, 2)
+        grid.addLayout(cookies_row, 12, 0, 1, 2)
 
         self.compatible_check = QCheckBox("Play on any device (H.264)")
         self.compatible_check.setToolTip(
@@ -351,10 +354,10 @@ class VideoPanel(QWidget):
             "player handles modern codecs."
         )
         self.compatible_check.toggled.connect(self._on_options_changed)
-        grid.addWidget(self.compatible_check, 12, 0, 1, 2)
+        grid.addWidget(self.compatible_check, 13, 0, 1, 2)
 
         self.overwrite_check = QCheckBox("Redo files that already exist")
-        grid.addWidget(self.overwrite_check, 13, 0, 1, 2)
+        grid.addWidget(self.overwrite_check, 14, 0, 1, 2)
 
         self.auto_resume_check = QCheckBox("Keep trying when the site blocks")
         self.auto_resume_check.setToolTip(
@@ -362,19 +365,19 @@ class VideoPanel(QWidget):
             "With this ticked Promak waits it out (up to several hours) and carries\n"
             "on by itself, so a long playlist can run unattended overnight."
         )
-        grid.addWidget(self.auto_resume_check, 14, 0, 1, 2)
+        grid.addWidget(self.auto_resume_check, 15, 0, 1, 2)
 
         self.auto_update_check = QCheckBox("Update the download engine before a run")
         self.auto_update_check.setToolTip(
             "Checks for a newer yt-dlp at most once a day, before the first video.\n"
             "An outdated engine is the most common reason a site turns suspicious."
         )
-        grid.addWidget(self.auto_update_check, 15, 0, 1, 2)
+        grid.addWidget(self.auto_update_check, 16, 0, 1, 2)
 
         self.options_hint = QLabel()
         self.options_hint.setObjectName("HintLabel")
         self.options_hint.setWordWrap(True)
-        grid.addWidget(self.options_hint, 16, 0, 1, 2)
+        grid.addWidget(self.options_hint, 17, 0, 1, 2)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         layout.addWidget(options_box)
@@ -464,6 +467,7 @@ class VideoPanel(QWidget):
         self.cookies_file_input.setText(str(config.get("video.cookies_file", "") or ""))
         self.auto_resume_check.setChecked(bool(config.get("video.auto_resume", True)))
         self.auto_update_check.setChecked(bool(config.get("video.auto_update_engine", True)))
+        self.word_filter_box.load(config)
         self._on_layout_changed()
         self._on_options_changed()
 
@@ -489,6 +493,7 @@ class VideoPanel(QWidget):
                 "video.auto_update_engine": self.auto_update_check.isChecked(),
             }
         )
+        self.word_filter_box.save(self.config)
 
     def _on_layout_changed(self, *_args) -> None:
         """Show in plain words where the files of one video will end up."""
@@ -532,6 +537,8 @@ class VideoPanel(QWidget):
             cookies_file=self.cookies_file_input.text().strip(),
             compatible_video=self.compatible_check.isChecked(),
             auto_resume=self.auto_resume_check.isChecked(),
+            drop_words=self.word_filter_box.phrases_text(),
+            drop_match_case=self.word_filter_box.match_case(),
         )
 
     def _on_options_changed(self, *_args) -> None:
@@ -542,6 +549,7 @@ class VideoPanel(QWidget):
         self.language_combo.setEnabled(transcribing)
         self.txt_check.setEnabled(transcribing)
         self.srt_check.setEnabled(transcribing)
+        self.word_filter_box.setEnabled(transcribing)
 
         self.compatible_check.setEnabled(self.keep_video_check.isChecked())
 
@@ -882,7 +890,7 @@ class VideoPanel(QWidget):
             return
 
         options = self._current_options()
-        problem = options.validate()
+        problem = options.validate() or (self.word_filter_box.problem() if options.transcribe else "")
         if problem:
             QMessageBox.warning(self, "Check the options", problem)
             return

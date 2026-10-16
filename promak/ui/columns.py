@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer
+from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -262,6 +262,28 @@ def fit_setup_column(scroll: QScrollArea, content: QWidget) -> None:
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     needed = content.minimumSizeHint().width() + scroll.verticalScrollBar().sizeHint().width() + 6
     scroll.setMinimumWidth(max(scroll.minimumWidth(), needed))
+    # bigger letters (zoom) or a longer label later on: the column follows
+    watcher = _FitWatcher(scroll, content)
+    content.installEventFilter(watcher)
+    scroll._fit_watcher = watcher          # kept alive with the column
+
+
+class _FitWatcher(QObject):
+    """Widens a left column again when what it holds needs more room."""
+
+    def __init__(self, scroll: QScrollArea, content: QWidget) -> None:
+        super().__init__(scroll)
+        self.scroll = scroll
+        self.content = content
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt naming
+        if event.type() in (QEvent.LayoutRequest, QEvent.StyleChange, QEvent.FontChange):
+            needed = (self.content.minimumSizeHint().width()
+                      + self.scroll.verticalScrollBar().sizeHint().width() + 6)
+            needed = max(MINIMUM_WIDTHS[0], needed)
+            if needed != self.scroll.minimumWidth():
+                self.scroll.setMinimumWidth(needed)
+        return False
 
 
 def queue_buttons(actions: Sequence[Tuple[str, Callable]], per_row: int = 3) -> QGridLayout:

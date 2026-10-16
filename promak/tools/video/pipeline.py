@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+from promak.core.wordfilter import WordFilter, describe, filter_text_file
 from promak.tools.video import audio as audio_step
 from promak.tools.video import downloader
 from promak.tools.video import transcriber
@@ -371,6 +372,7 @@ class PipelineEngine:
                 and (not options.write_srt or srt_path.exists())
                 and not options.overwrite
             )
+            word_filter = WordFilter(options.drop_words, match_case=options.drop_match_case)
             if already:
                 self._log("info", f"Transcript already present for {base_name}, kept as is.")
                 report(100.0, "transcript already present")
@@ -378,6 +380,11 @@ class PipelineEngine:
                     job.outputs["txt"] = txt_path
                 if options.write_srt:
                     job.outputs["srt"] = srt_path
+                if word_filter.active:
+                    # the words to remove are taken out of the files already there too
+                    for path in ([txt_path] if options.write_txt else []) + ([srt_path] if options.write_srt else []):
+                        removed = filter_text_file(path, word_filter)
+                        self._log("info", f"{path.name}: {describe(removed)}.")
             else:
                 segments, language = transcriber.transcribe(
                     source,
@@ -387,6 +394,9 @@ class PipelineEngine:
                     progress=report,
                     cancel_event=self.cancel_event,
                 )
+                if word_filter.active:
+                    segments, removed = transcriber.filter_segments(segments, word_filter)
+                    self._log("info", f"Transcript of {base_name}: {describe(removed)}.")
                 if options.write_txt:
                     transcriber.write_txt(segments, txt_path, title=job.title, source_url=job.url)
                     job.outputs["txt"] = txt_path
